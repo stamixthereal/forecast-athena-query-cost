@@ -1,12 +1,10 @@
-# Comprehensive README for SQL Query Log Analysis and Memory Usage Prediction Project
-
 ## Project Overview
 
 This project comprises a suite of Python scripts designed to analyze SQL query logs and predict the memory usage of SQL queries. It involves downloading query logs from AWS Athena, processing these logs, and using machine learning to predict the memory usage of SQL queries. The project is split into three main parts:
 
 1. **`parse_athena_executions.py`**: Downloads query logs from AWS Athena for multiple workgroups in parallel.
 2. **`transform_query_logs.py`**: Processes SQL query logs stored in JSON format and converts them into a CSV file.
-3. **`database_query_performance_prediction.py`**: Predicts the memory usage of SQL queries based on extracted features using an XGBoost model.
+3. **`prediction.py`**: Predicts the memory usage of SQL queries based on extracted features using an XGBoost model.
 
 ## Part 1: `parse_athena_executions.py`
 
@@ -100,7 +98,7 @@ Enter your choice (1/2/3/4): 2
 Run the main script to access the menu:
 
 ```bash
-python main_script.py
+python main.py
 ```
 
 ## Logging and Error Handling
@@ -119,7 +117,3 @@ Parts of the scripts, such as user data fetching methods, are placeholders for c
 ## License
 
 The project is released under the [MIT License](https://opensource.org/licenses/MIT).
-
----
-
-This README provides a comprehensive guide to setting up and running the entire SQL query log analysis and memory usage prediction pipeline. Each script is designed to be modular and can be run independently or as part of the complete pipeline.
