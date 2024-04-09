@@ -14,7 +14,8 @@ class QueryLog:
     :param data: The JSON data for a query log.
     :type data: dict
     """
-    query_cleaner = re.compile(r'\s+')
+
+    query_cleaner = re.compile(r"\s+")
 
     def __init__(self, data):
         self.data = data
@@ -31,7 +32,7 @@ class QueryLog:
         :rtype: str
         """
         # Placeholder, replace with actual user data extraction logic
-        return 'random_user'
+        return "random_user"
 
     def is_dml_and_succeeded(self):
         """Check if the query is of DML type and has succeeded.
@@ -39,7 +40,10 @@ class QueryLog:
         :return: True if query is DML and succeeded, False otherwise.
         :rtype: bool
         """
-        return self.data.get('StatementType') == 'DML' and self.data.get('Status', {}).get('State') == "SUCCEEDED"
+        return (
+            self.data.get("StatementType") == "DML"
+            and self.data.get("Status", {}).get("State") == "SUCCEEDED"
+        )
 
     def to_csv_row(self):
         """Convert the query log to a CSV row format.
@@ -47,16 +51,25 @@ class QueryLog:
         :return: List of values representing a CSV row.
         :rtype: list
         """
-        query_id = self.data['QueryExecutionId']
+        query_id = self.data["QueryExecutionId"]
         user = self.get_user()
-        source = self.data['WorkGroup']
-        environment = self.data['QueryExecutionContext']['Database']
+        source = self.data["WorkGroup"]
+        environment = self.data["QueryExecutionContext"]["Database"]
         catalog = environment
-        query = self.clean_query(self.data['Query'])
-        statistics = self.data.get('Statistics', {})
-        peak_memory_bytes = statistics.get('DataScannedInBytes', 0)
-        cpu_time_ms = statistics.get('TotalExecutionTimeInMillis', 0)
-        return [query_id, user, source, environment, catalog, query, peak_memory_bytes, cpu_time_ms]
+        query = self.clean_query(self.data["Query"])
+        statistics = self.data.get("Statistics", {})
+        peak_memory_bytes = statistics.get("DataScannedInBytes", 0)
+        cpu_time_ms = statistics.get("TotalExecutionTimeInMillis", 0)
+        return [
+            query_id,
+            user,
+            source,
+            environment,
+            catalog,
+            query,
+            peak_memory_bytes,
+            cpu_time_ms,
+        ]
 
     @staticmethod
     def clean_query(query):
@@ -67,7 +80,7 @@ class QueryLog:
         :return: The cleaned query string.
         :rtype: str
         """
-        return QueryLog.query_cleaner.sub(' ', query.strip())
+        return QueryLog.query_cleaner.sub(" ", query.strip())
 
 
 class QueryLogReader:
@@ -82,7 +95,7 @@ class QueryLogReader:
         :return: A processed QueryLog object or None.
         :rtype: QueryLog or None
         """
-        with open(file_to_process, 'r') as f_in:
+        with open(file_to_process, "r") as f_in:
             data = json.load(f_in)
             if data is None or data == {}:
                 logger.warning(f"No data found in {file_to_process}. Skipping.")
@@ -96,8 +109,16 @@ class QueryLogReader:
 class CSVWriter:
     """A class to handle writing data rows to a CSV file."""
 
-    column_names = ["query_id", "user_", "source", "environment", "catalog", "query", "peak_memory_bytes",
-                    "cpu_time_ms"]
+    column_names = [
+        "query_id",
+        "user_",
+        "source",
+        "environment",
+        "catalog",
+        "query",
+        "peak_memory_bytes",
+        "cpu_time_ms",
+    ]
 
     def __init__(self, csv_file):
         self.csv_file = csv_file
@@ -113,16 +134,20 @@ class CSVWriter:
             if not os.path.exists(os.path.dirname(self.csv_file)):
                 os.makedirs(os.path.dirname(self.csv_file))
 
-            with open(self.csv_file, 'a', newline='') as f_out:
+            with open(self.csv_file, "a", newline="") as f_out:
                 csv_writer = csv.writer(f_out)
 
                 if os.stat(self.csv_file).st_size == 0:
                     csv_writer.writerow(self.column_names)
                 csv_writer.writerow(data_row)
         except IOError:
-            logger.error(f"Error while trying to write to the file: {self.csv_file}. Check permissions or disk space.")
+            logger.error(
+                f"Error while trying to write to the file: {self.csv_file}. Check permissions or disk space."
+            )
         except Exception as e:
-            logger.error(f"An unexpected error occurred while writing to the file {self.csv_file}: {str(e)}")
+            logger.error(
+                f"An unexpected error occurred while writing to the file {self.csv_file}: {str(e)}"
+            )
 
 
 def process_file(file_to_process):
@@ -183,34 +208,50 @@ def main() -> None:
         isn't a valid CSV file path.
     :return: None
     """
-    parser = argparse.ArgumentParser(description="This script processes SQL query logs in JSON format from a specified "
-                                                 "input directory and writes the processed data to a specified CSV "
-                                                 "file.")
+    parser = argparse.ArgumentParser(
+        description="This script processes SQL query logs in JSON format from a specified "
+        "input directory and writes the processed data to a specified CSV "
+        "file."
+    )
 
-    def directory_type(arg_value, pat=re.compile(r'^[./\\a-zA-Z0-9_-]+$')):
+    def directory_type(arg_value, pat=re.compile(r"^[./\\a-zA-Z0-9_-]+$")):
         if not pat.match(arg_value) or not os.path.isdir(arg_value):
-            raise argparse.ArgumentTypeError(f"'{arg_value}' is not a valid directory path")
+            raise argparse.ArgumentTypeError(
+                f"'{arg_value}' is not a valid directory path"
+            )
         return arg_value
 
-    def file_type(arg_value, pat=re.compile(r'^[./\\a-zA-Z0-9_-]+\.csv$')):
+    def file_type(arg_value, pat=re.compile(r"^[./\\a-zA-Z0-9_-]+\.csv$")):
         if not pat.match(arg_value):
-            raise argparse.ArgumentTypeError(f"'{arg_value}' is not a valid CSV file path")
+            raise argparse.ArgumentTypeError(
+                f"'{arg_value}' is not a valid CSV file path"
+            )
         return arg_value
 
-    parser.add_argument("--input_dir", default=DEFAULT_DIR_RAW_DATA, type=directory_type,
-                        help="Path to the input directory containing JSON files with SQL query logs. "
-                             f"Default is '{DEFAULT_DIR_RAW_DATA}'.")
+    parser.add_argument(
+        "--input_dir",
+        default=DEFAULT_DIR_RAW_DATA,
+        type=directory_type,
+        help="Path to the input directory containing JSON files with SQL query logs. "
+        f"Default is '{DEFAULT_DIR_RAW_DATA}'.",
+    )
 
-    parser.add_argument("--output_file", default=DEFAULT_OUTPUT_FILE, type=file_type,
-                        help="Path to the output CSV file where the processed data will be written. "
-                             f"Default is '{DEFAULT_OUTPUT_FILE}'.")
+    parser.add_argument(
+        "--output_file",
+        default=DEFAULT_OUTPUT_FILE,
+        type=file_type,
+        help="Path to the output CSV file where the processed data will be written. "
+        f"Default is '{DEFAULT_OUTPUT_FILE}'.",
+    )
 
     args = parser.parse_args()
 
     input_directory = os.path.abspath(args.input_dir)
     output_csv_file = os.path.abspath(args.output_file)
 
-    logger.info(f"Starting the processing of query logs from directory: {input_directory}.")
+    logger.info(
+        f"Starting the processing of query logs from directory: {input_directory}."
+    )
 
     writer = CSVWriter(output_csv_file)
     json_files = glob.glob(os.path.join(input_directory, "*.json"))
@@ -232,8 +273,13 @@ def main() -> None:
         current_percentage = (processed_count / total_files) * 100
 
         # Check if the progress has crossed the threshold since the last logged percentage
-        if last_logged_percentage is None or (current_percentage - last_logged_percentage) >= percentage_threshold:
-            logger.info(f"Processed {processed_count}/{total_files} files ({current_percentage:.2f}%).")
+        if (
+            last_logged_percentage is None
+            or (current_percentage - last_logged_percentage) >= percentage_threshold
+        ):
+            logger.info(
+                f"Processed {processed_count}/{total_files} files ({current_percentage:.2f}%)."
+            )
             last_logged_percentage = current_percentage
 
         if row:
@@ -242,5 +288,5 @@ def main() -> None:
     logger.info(f"Processing completed. Data written to {output_csv_file}.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

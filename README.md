@@ -16,7 +16,7 @@ This project comprises a suite of Python scripts designed to analyze SQL query l
 
 ### Pre-requisites
 
-- Python 3.7+
+- Python 3.12+
 - Boto3 Python SDK
 - AWS CLI
 
@@ -88,9 +88,10 @@ Choose an action:
 1. Process Athena Executions
 2. Transform Query Logs
 3. Run The Whole Pipeline
-4. Exit
+4. Make Prediction
+5. Exit
 
-Enter your choice (1/2/3/4): 2
+Enter your choice (1/2/3/4/5): 2
 ```
 
 ### Execution
