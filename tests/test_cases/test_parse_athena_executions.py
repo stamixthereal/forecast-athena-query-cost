@@ -41,9 +41,7 @@ class TestWorkgroupManager(unittest.TestCase):
     def test_list_workgroups(self, mock_boto3_client):
         mock_athena = MagicMock()
         mock_boto3_client.return_value = mock_athena
-        mock_athena.list_work_groups.return_value = {
-            "WorkGroups": [{"Name": "workgroup1"}, {"Name": "workgroup2"}]
-        }
+        mock_athena.list_work_groups.return_value = {"WorkGroups": [{"Name": "workgroup1"}, {"Name": "workgroup2"}]}
         manager = WorkgroupManager()
         workgroups = manager.list_workgroups()
         self.assertEqual(workgroups, [{"Name": "workgroup1"}, {"Name": "workgroup2"}])
@@ -66,9 +64,7 @@ class TestQueryLogManager(unittest.TestCase):
                 "Status": {"State": "SUCCEEDED"},
             }
         }
-        manager = QueryLogManager(
-            output_dir=OUTPUT_DIR, workgroup_name="workgroup1"
-        )  # Use the global variable
+        manager = QueryLogManager(output_dir=OUTPUT_DIR, workgroup_name="workgroup1")  # Use the global variable
         manager.download_query_logs()
 
     @patch("boto3.client")
@@ -78,16 +74,12 @@ class TestQueryLogManager(unittest.TestCase):
         mock_athena.get_query_execution.return_value = {
             "QueryExecution": {"QueryExecutionId": "123", "Status": {"State": "FAILED"}}
         }
-        manager = QueryLogManager(
-            output_dir=OUTPUT_DIR, workgroup_name="workgroup1"
-        )  # Use the global variable
+        manager = QueryLogManager(output_dir=OUTPUT_DIR, workgroup_name="workgroup1")  # Use the global variable
         manager.download_query_logs()
 
     @patch("subprocess.run")
     def test_download_query_logs_cli_error(self, mock_subprocess_run):
-        mock_subprocess_run.side_effect = subprocess.CalledProcessError(
-            1, "aws athena list-query-executions"
-        )
+        mock_subprocess_run.side_effect = subprocess.CalledProcessError(1, "aws athena list-query-executions")
         manager = QueryLogManager(output_dir=OUTPUT_DIR, workgroup_name="workgroup1")
         manager.download_query_logs()
 
@@ -96,9 +88,7 @@ class TestMainFunction(unittest.TestCase):
     @patch("src.app.parse_athena_executions.QueryLogDownloader.download_query_logs")
     @patch("src.app.parse_athena_executions.parse_args")
     def test_main(self, mock_parse_args, mock_download_query_logs):
-        mock_parse_args.return_value = argparse.Namespace(
-            output_dir=OUTPUT_DIR, region_name="us-east-1"
-        )
+        mock_parse_args.return_value = argparse.Namespace(output_dir=OUTPUT_DIR, region_name="us-east-1")
         main()
         mock_download_query_logs.assert_called_once()
 
@@ -108,13 +98,9 @@ class TestIntegration(unittest.TestCase):
     def test_integration(self, mock_download_query_logs):
         downloader = QueryLogDownloader()
         workgroup_manager = WorkgroupManager()
-        query_log_manager = QueryLogManager(
-            output_dir=OUTPUT_DIR, workgroup_name="workgroup1"
-        )
+        query_log_manager = QueryLogManager(output_dir=OUTPUT_DIR, workgroup_name="workgroup1")
 
-        mock_download_query_logs.return_value = (
-            None  # Mock the download_query_logs method
-        )
+        mock_download_query_logs.return_value = None  # Mock the download_query_logs method
 
         downloader.download_query_logs()
         workgroup_manager.list_workgroups()

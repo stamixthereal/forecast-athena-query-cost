@@ -15,9 +15,7 @@ from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 
 from src.utils.config import DEFAULT_OUTPUT_FILE, DEFAULT_MODEL_FILE
 
-logging.basicConfig(
-    level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 
 warnings.filterwarnings("ignore")
 
@@ -31,11 +29,7 @@ data = pd.read_csv(DEFAULT_OUTPUT_FILE)
 logging.info(f"Loaded {len(data)} rows of data.")
 
 # Filter out null values in specified columns
-data = data[
-    data["query"].notna()
-    & data["cpu_time_ms"].notna()
-    & data["peak_memory_bytes"].notna()
-]
+data = data[data["query"].notna() & data["cpu_time_ms"].notna() & data["peak_memory_bytes"].notna()]
 
 # Remove duplicate rows based on all columns
 data.drop_duplicates(inplace=True)
@@ -51,12 +45,8 @@ y = data["peak_memory_bytes"].values
 
 logging.info("Splitting the dataset into train, validation, and test sets...")
 
-X_train, X_temp, y_train, y_temp = train_test_split(
-    X, y, test_size=0.3, random_state=42
-)
-X_valid, X_test, y_valid, y_test = train_test_split(
-    X_temp, y_temp, test_size=0.5, random_state=42
-)
+X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
+X_valid, X_test, y_valid, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
 
 def extract_features(query):
@@ -77,12 +67,8 @@ def extract_features(query):
         "num_select_clauses": count_occurrences("select"),
         "num_joins": count_occurrences("join"),
         "num_subqueries": count_occurrences("select") - 1,
-        "max_parentheses_depth": max(
-            [len(m) - 1 for m in re.findall(r"\([^()]*\)", query)] or [0]
-        ),
-        "num_aggregation_functions": count_occurrences(
-            ["sum", "avg", "count", "max", "min"]
-        ),
+        "max_parentheses_depth": max([len(m) - 1 for m in re.findall(r"\([^()]*\)", query)] or [0]),
+        "num_aggregation_functions": count_occurrences(["sum", "avg", "count", "max", "min"]),
         "limit_clause": int("LIMIT" in query_upper),
         "group_by_clause": int("GROUP BY" in query_upper),
         "having_clause": int("HAVING" in query_upper),
@@ -90,23 +76,15 @@ def extract_features(query):
         "distinct_query": int("distinct" in query_lower),
         "num_tables": count_occurrences("from"),
         "num_conditions": find_occurrences(r"\bWHERE\b"),
-        "num_operators": sum(
-            map(query.count, ["=", "<>", ">", "<", "BETWEEN", "LIKE", "IN"])
-        ),
+        "num_operators": sum(map(query.count, ["=", "<>", ">", "<", "BETWEEN", "LIKE", "IN"])),
         "distinct_functions": find_occurrences(r"\b\w+\s*\("),
         "date_functions": count_occurrences(["date", "day", "month", "year", "now"]),
-        "string_functions": count_occurrences(
-            ["substring", "concat", "trim", "lower", "upper"]
-        ),
+        "string_functions": count_occurrences(["substring", "concat", "trim", "lower", "upper"]),
         "logical_operators": count_occurrences(["and", "or"]),
         "union_usage": count_occurrences("union"),
         "case_statements": count_occurrences("case when"),
         "nested_case_depth": max(
-            [
-                q.count("case when")
-                for q in re.findall(r"case when(.*?)end", query, re.IGNORECASE)
-            ]
-            or [0]
+            [q.count("case when") for q in re.findall(r"case when(.*?)end", query, re.IGNORECASE)] or [0]
         ),
         "with_clause": int("WITH" in query_upper),
         "values_clause": int("VALUES" in query_upper),
@@ -126,8 +104,7 @@ def extract_features(query):
         "is_null_check": count_occurrences("is null"),
         "is_not_null_check": count_occurrences("is not null"),
         "alias_usage": find_occurrences(r"AS [\w_]+"),
-        "temp_table_usage": int("TEMP" in query_upper)
-        + int("TEMPORARY" in query_upper),
+        "temp_table_usage": int("TEMP" in query_upper) + int("TEMPORARY" in query_upper),
         "wildcard_usage": query.count("*"),
         "not_keyword_usage": count_occurrences("not"),
         "left_joins": count_occurrences("left join"),
@@ -136,19 +113,13 @@ def extract_features(query):
         "full_joins": count_occurrences("full join"),
         "coalesce_usage": count_occurrences("coalesce("),
         "cte_usage": int("WITH" in query_upper and "AS" in query_upper),
-        "having_with_groupby": int(
-            "HAVING" in query_upper and "GROUP BY" in query_upper
-        ),
+        "having_with_groupby": int("HAVING" in query_upper and "GROUP BY" in query_upper),
         "between_operators": count_occurrences("between"),
         "not_conditions": count_occurrences("not"),
-        "window_functions": count_occurrences(
-            ["row_number(", "rank(", "dense_rank(", "lead(", "lag("]
-        ),
+        "window_functions": count_occurrences(["row_number(", "rank(", "dense_rank(", "lead(", "lag("]),
         "subquery_in_from": find_occurrences(r"FROM\s*\("),
         "comment_usage": find_occurrences(r"--.*?$|\/*.*?\*\/"),
-        "transaction_commands": count_occurrences(
-            ["commit", "rollback", "start transaction"]
-        ),
+        "transaction_commands": count_occurrences(["commit", "rollback", "start transaction"]),
         "alter_command": int("ALTER" in query_upper),
         "drop_command": int("DROP" in query_upper),
         "math_functions": count_occurrences(["round(", "power(", "sqrt("]),
@@ -164,9 +135,7 @@ def extract_features(query):
         "serde_usage": count_occurrences("serde"),
         "table_properties": count_occurrences("external_location"),
         "file_format_usage": count_occurrences(["parquet", "orc", "json", "avro"]),
-        "approximate_queries": count_occurrences(
-            ["approx_percentile(", "approx_distinct("]
-        ),
+        "approximate_queries": count_occurrences(["approx_percentile(", "approx_distinct("]),
         "lateral_view": count_occurrences("lateral view"),
         "ctas_usage": count_occurrences("create table .* as select"),
     }
@@ -223,11 +192,7 @@ X_valid_poly = imputer.transform(X_valid_poly)
 X_test_poly = imputer.transform(X_test_poly)
 
 # Check for NaN values after imputation
-if (
-    np.isnan(X_train_poly).any()
-    or np.isnan(X_valid_poly).any()
-    or np.isnan(X_test_poly).any()
-):
+if np.isnan(X_train_poly).any() or np.isnan(X_valid_poly).any() or np.isnan(X_test_poly).any():
     raise ValueError("NaN values are still present in the data after imputation.")
 
 # PCA for Dimensionality Reduction
@@ -240,9 +205,7 @@ X_test_poly = pca.transform(X_test_poly)
 # Clip Outliers for y_train
 logging.info("Clipping outliers for y_train...")
 quantile_transform = pd.Series(y_train).quantile([LOWER_ALPHA, UPPER_ALPHA])
-y_train_clipped = np.clip(
-    y_train, quantile_transform[LOWER_ALPHA], quantile_transform[UPPER_ALPHA]
-)
+y_train_clipped = np.clip(y_train, quantile_transform[LOWER_ALPHA], quantile_transform[UPPER_ALPHA])
 
 # Clip Outliers for y_valid
 logging.info("Clipping outliers for y_valid...")
@@ -320,9 +283,7 @@ def objective(trial):
 
     params = get_trial_parameters(trial)
 
-    model = train_xgb_model(
-        params, X_train_poly, y_train_clipped, X_valid_poly, y_valid_clipped
-    )
+    model = train_xgb_model(params, X_train_poly, y_train_clipped, X_valid_poly, y_valid_clipped)
 
     y_pred = model.predict(X_test_poly)
 
@@ -394,9 +355,7 @@ logging.info(f"Final prediction: {predicted_memory} bytes")
 logging.info(f"Prediction range: {lower_bound} bytes to {upper_bound} bytes")
 logging.info(f"Evaluation Metrics - MSE: {mse}, MAE: {mae}, R^2: {r2}")
 
-print(
-    f"Predicted memory for new query: {predicted_memory:.2f} bytes ({predicted_memory / BYTES_IN_ONE_GB:.2f} GB)"
-)
+print(f"Predicted memory for new query: {predicted_memory:.2f} bytes ({predicted_memory / BYTES_IN_ONE_GB:.2f} GB)")
 print(
     f"Prediction range: {lower_bound:.2f} bytes ({lower_bound / BYTES_IN_ONE_GB:.2f} GB) "
     f"to {upper_bound:.2f} bytes ({upper_bound / BYTES_IN_ONE_GB:.2f} GB)"

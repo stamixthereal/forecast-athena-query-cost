@@ -33,9 +33,7 @@ class QueryLogDownloader:
         """
         self.output_dir = output_dir
         self.region_name = region_name
-        self.max_workers = min(
-            cpu_count(), 10
-        )  # Set max_workers based on CPU cores (up to 10)
+        self.max_workers = min(cpu_count(), 10)  # Set max_workers based on CPU cores (up to 10)
 
     def download_query_logs(self) -> None:
         """
@@ -72,20 +70,14 @@ class QueryLogDownloader:
                     try:
                         future.result()  # Get the result of the completed task (this may raise an exception)
                     except Exception as e:
-                        logger.error(
-                            f"Error during download: {type(e).__name__} - {str(e)}"
-                        )
+                        logger.error(f"Error during download: {type(e).__name__} - {str(e)}")
 
-            logger.info(
-                f"Download complete. Query logs are stored in: {self.output_dir}"
-            )
+            logger.info(f"Download complete. Query logs are stored in: {self.output_dir}")
         except Exception as e:
             logger.error(f"Error during download: {type(e).__name__} - {str(e)}")
 
     @staticmethod
-    def _download_query_logs_for_workgroup(
-        output_dir: str, workgroup: Dict[str, Any]
-    ) -> None:
+    def _download_query_logs_for_workgroup(output_dir: str, workgroup: Dict[str, Any]) -> None:
         """
         Download query logs for a specific workgroup.
 
@@ -173,19 +165,13 @@ class QueryLogManager:
         """
         aws_cli_command = f"aws athena list-query-executions --work-group {self.workgroup_name} --output json | jq -r"
         try:
-            result = subprocess.run(
-                aws_cli_command, shell=True, capture_output=True, text=True, check=True
-            )
+            result = subprocess.run(aws_cli_command, shell=True, capture_output=True, text=True, check=True)
             output_list = json.loads(result.stdout)["QueryExecutionIds"]
         except subprocess.CalledProcessError as e:
-            logger.error(
-                f"Error running AWS CLI command: {type(e).__name__} - {str(e)}"
-            )
+            logger.error(f"Error running AWS CLI command: {type(e).__name__} - {str(e)}")
             return
         except Exception as e:
-            logger.error(
-                f"Error during query log download: {type(e).__name__} - {str(e)}"
-            )
+            logger.error(f"Error during query log download: {type(e).__name__} - {str(e)}")
             return
 
         query_execution_ids = [execution_id for execution_id in output_list]
@@ -193,30 +179,20 @@ class QueryLogManager:
         for query_execution_id in query_execution_ids:
             logger.info(f"Downloading query log for execution ID: {query_execution_id}")
             try:
-                response = self.athena.get_query_execution(
-                    QueryExecutionId=query_execution_id
-                )
+                response = self.athena.get_query_execution(QueryExecutionId=query_execution_id)
                 query_log = json.dumps(
                     response["QueryExecution"],
                     indent=4,
-                    default=lambda x: x.isoformat()
-                    if isinstance(x, datetime.datetime)
-                    else x,
+                    default=lambda x: x.isoformat() if isinstance(x, datetime.datetime) else x,
                 )
 
-                log_file_path = os.path.join(
-                    self.output_dir, f"{self.workgroup_name}-{query_execution_id}.json"
-                )
+                log_file_path = os.path.join(self.output_dir, f"{self.workgroup_name}-{query_execution_id}.json")
                 with open(log_file_path, "w") as f:
                     f.write(query_log)
 
-                logger.info(
-                    f"Downloaded query log for execution ID: {query_execution_id}"
-                )
+                logger.info(f"Downloaded query log for execution ID: {query_execution_id}")
             except Exception as e:
-                logger.error(
-                    f"Error during query log download: {type(e).__name__} - {str(e)}"
-                )
+                logger.error(f"Error during query log download: {type(e).__name__} - {str(e)}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -225,9 +201,7 @@ def parse_args() -> argparse.Namespace:
 
     :return: An object containing the parsed command-line arguments.
     """
-    parser = argparse.ArgumentParser(
-        description="Download query logs from AWS Athena for multiple workgroups."
-    )
+    parser = argparse.ArgumentParser(description="Download query logs from AWS Athena for multiple workgroups.")
     parser.add_argument(
         "--output-dir",
         "-o",
@@ -277,9 +251,7 @@ def main() -> None:
     :return: None
     """
     args = parse_args()
-    downloader = QueryLogDownloader(
-        output_dir=args.output_dir, region_name=args.region_name
-    )
+    downloader = QueryLogDownloader(output_dir=args.output_dir, region_name=args.region_name)
     downloader.download_query_logs()
 
 

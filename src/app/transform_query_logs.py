@@ -40,10 +40,7 @@ class QueryLog:
         :return: True if query is DML and succeeded, False otherwise.
         :rtype: bool
         """
-        return (
-            self.data.get("StatementType") == "DML"
-            and self.data.get("Status", {}).get("State") == "SUCCEEDED"
-        )
+        return self.data.get("StatementType") == "DML" and self.data.get("Status", {}).get("State") == "SUCCEEDED"
 
     def to_csv_row(self):
         """Convert the query log to a CSV row format.
@@ -141,13 +138,9 @@ class CSVWriter:
                     csv_writer.writerow(self.column_names)
                 csv_writer.writerow(data_row)
         except IOError:
-            logger.error(
-                f"Error while trying to write to the file: {self.csv_file}. Check permissions or disk space."
-            )
+            logger.error(f"Error while trying to write to the file: {self.csv_file}. Check permissions or disk space.")
         except Exception as e:
-            logger.error(
-                f"An unexpected error occurred while writing to the file {self.csv_file}: {str(e)}"
-            )
+            logger.error(f"An unexpected error occurred while writing to the file {self.csv_file}: {str(e)}")
 
 
 def process_file(file_to_process):
@@ -216,16 +209,12 @@ def main() -> None:
 
     def directory_type(arg_value, pat=re.compile(r"^[./\\a-zA-Z0-9_-]+$")):
         if not pat.match(arg_value) or not os.path.isdir(arg_value):
-            raise argparse.ArgumentTypeError(
-                f"'{arg_value}' is not a valid directory path"
-            )
+            raise argparse.ArgumentTypeError(f"'{arg_value}' is not a valid directory path")
         return arg_value
 
     def file_type(arg_value, pat=re.compile(r"^[./\\a-zA-Z0-9_-]+\.csv$")):
         if not pat.match(arg_value):
-            raise argparse.ArgumentTypeError(
-                f"'{arg_value}' is not a valid CSV file path"
-            )
+            raise argparse.ArgumentTypeError(f"'{arg_value}' is not a valid CSV file path")
         return arg_value
 
     parser.add_argument(
@@ -249,9 +238,7 @@ def main() -> None:
     input_directory = os.path.abspath(args.input_dir)
     output_csv_file = os.path.abspath(args.output_file)
 
-    logger.info(
-        f"Starting the processing of query logs from directory: {input_directory}."
-    )
+    logger.info(f"Starting the processing of query logs from directory: {input_directory}.")
 
     writer = CSVWriter(output_csv_file)
     json_files = glob.glob(os.path.join(input_directory, "*.json"))
@@ -273,13 +260,8 @@ def main() -> None:
         current_percentage = (processed_count / total_files) * 100
 
         # Check if the progress has crossed the threshold since the last logged percentage
-        if (
-            last_logged_percentage is None
-            or (current_percentage - last_logged_percentage) >= percentage_threshold
-        ):
-            logger.info(
-                f"Processed {processed_count}/{total_files} files ({current_percentage:.2f}%)."
-            )
+        if last_logged_percentage is None or (current_percentage - last_logged_percentage) >= percentage_threshold:
+            logger.info(f"Processed {processed_count}/{total_files} files ({current_percentage:.2f}%).")
             last_logged_percentage = current_percentage
 
         if row:
