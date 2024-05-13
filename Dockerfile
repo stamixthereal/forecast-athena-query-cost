@@ -1,9 +1,11 @@
-FROM python:3.12
+FROM python:3.12.3-slim
 
-# Install the AWS CLI
-RUN apt-get update && \
-    apt-get install -y awscli && \
-    apt-get install -y jq
+# Combine package installations
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        awscli \
+        jq \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY . /forecast-sql-query
 
