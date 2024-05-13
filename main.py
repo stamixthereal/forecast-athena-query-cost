@@ -55,6 +55,7 @@ def main():
         elif choice == "3":
             parse_athena_main()
             transform_main()
+            execute_prediction()
         elif choice == "4":
             execute_prediction()
         elif choice == "5":
