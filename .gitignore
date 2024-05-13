@@ -7,6 +7,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 .vscode
+data/raw/
+data/processed/
 
 # C extensions
 *.so

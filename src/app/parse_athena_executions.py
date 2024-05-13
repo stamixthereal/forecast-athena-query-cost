@@ -11,6 +11,19 @@ import boto3
 
 from src.utils.config import DEFAULT_REGION_NAME, DEFAULT_DIR_RAW_DATA, logger
 
+# Load AWS credentials from environment variables
+aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+aws_session_token = os.getenv("AWS_SESSION_TOKEN")
+aws_default_region = os.getenv("AWS_DEFAULT_REGION")
+
+# Create a session using the loaded credentials
+session = boto3.Session(
+    aws_access_key_id=aws_access_key_id,
+    aws_secret_access_key=aws_secret_access_key,
+    aws_session_token=aws_session_token,
+    region_name=aws_default_region
+)
 
 class QueryLogDownloader:
     """
