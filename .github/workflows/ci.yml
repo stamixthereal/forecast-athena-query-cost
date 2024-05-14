@@ -19,7 +19,6 @@ jobs:
             pip install -r requirements.txt
         - name: Lint with Ruff
           run: |
-            pip install ruff
             ruff check --output-format=github .
           continue-on-error: false
   test:

@@ -11,7 +11,7 @@ from src.app.parse_athena_executions import (
 )
 
 # Define the output directory as a global variable
-OUTPUT_DIR = os.path.abspath("..data/logs")
+OUTPUT_DIR = os.path.abspath("..data/logs") or "us-east-1"
 
 
 class TestQueryLogDownloader(unittest.TestCase):
