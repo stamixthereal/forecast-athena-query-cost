@@ -1,5 +1,6 @@
 from src.app.transform_query_logs import main as transform_main
 from src.app.parse_athena_executions import main as parse_athena_main
+from src.app.prediction import main as execute_prediction
 
 from dotenv import load_dotenv
 
@@ -63,16 +64,6 @@ def main():
             break
         else:
             print("Invalid choice. Please select a valid option.")
-
-
-def execute_prediction():
-    try:
-        with open("src/app/prediction.py", "r") as prediction_file:
-            exec(prediction_file.read(), globals())
-    except FileNotFoundError:
-        print("Prediction file not found.")
-    except Exception as e:
-        print("An error occurred while executing prediction:", e)
 
 
 if __name__ == "__main__":
