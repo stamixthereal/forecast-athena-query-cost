@@ -22,11 +22,11 @@ python transform_query_logs.py [--input_dir INPUT_DIRECTORY] [--output_file OUTP
 
 #### Arguments:
 
-- `--input_dir`: (Optional) The path to the input directory containing JSON files with SQL query logs. 
+- `--input_dir`: (Optional) The path to the input directory containing JSON files with SQL query logs.
   - Default: `../../data/raw`
   - Example: `--input_dir "./logs"`
 
-- `--output_file`: (Optional) The path to the output CSV file where the processed data will be written. 
+- `--output_file`: (Optional) The path to the output CSV file where the processed data will be written.
   - Default: `../../data/processed/processed_data.csv`
   - Example: `--output_file "./processed_data.csv"`
 

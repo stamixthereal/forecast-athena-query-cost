@@ -24,4 +24,3 @@ for workgroup in $workgroups; do
 done
 
 echo "Download complete. Query logs are stored in: $log_dir"
-

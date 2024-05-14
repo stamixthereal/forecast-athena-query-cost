@@ -8,4 +8,4 @@ sudo docker rmi $(sudo docker images -q)
 sudo docker build -t forecast-sql-image .
 
 # Run the Docker Container
-sudo docker run -v .:/forecast-sql-query --rm --name forecast-sql-container -it forecast-sql-image 
+sudo docker run -v .:/forecast-sql-query --rm --name forecast-sql-container -it forecast-sql-image
