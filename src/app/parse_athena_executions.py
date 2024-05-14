@@ -151,7 +151,7 @@ class QueryLogManager:
     :param workgroup_name: The name of the workgroup.
     """
 
-    def __init__(self, output_dir: str, workgroup_name: str):
+    def __init__(self, output_dir: str, workgroup_name: str, region_name: str = DEFAULT_REGION_NAME):
         """
         Initialize the QueryLogManager.
 
@@ -160,7 +160,7 @@ class QueryLogManager:
         """
         self.output_dir = output_dir
         self.workgroup_name = workgroup_name
-        self.athena = boto3.client("athena")
+        self.athena = boto3.client("athena", region_name=region_name)
 
     def download_query_logs(self) -> None:
         """
