@@ -1,4 +1,4 @@
-## Project Overview
+# Forecast Athena SQL Queries
 
 This project comprises a suite of Python scripts designed to analyze SQL query logs and predict the memory usage of SQL queries. It involves downloading query logs from AWS Athena, processing these logs, and using machine learning to predict the memory usage of SQL queries. The project is split into three main parts:
 
@@ -9,9 +9,11 @@ This project comprises a suite of Python scripts designed to analyze SQL query l
 ## Project Diagrams
 
 ### Current Architecture Diagram
+
 ![current-architecture](images/current-architecture.png)
 
 ### New Architecture Diagram
+
 ![new-architecture](images/new-architecture.png)
 
 ## Part 1: `parse_athena_executions.py`
@@ -45,7 +47,7 @@ Processes SQL query logs from JSON to CSV format, extracting specific data like 
 - Python 3.x
 - Libraries: argparse, csv, glob, json, logging, os, re
 
-### Usage
+### Transformation Module Usage
 
 ```bash
 python transform_query_logs.py [--input_dir INPUT_DIRECTORY] [--output_file OUTPUT_CSV_FILE]
@@ -57,18 +59,12 @@ A CSV file with columns such as `query_id`, `user_`, `source`, `environment`, `c
 
 ## Part 3: Database Query Performance Prediction Model
 
-### Features
-
-- Data Preprocessing, Feature Extraction, Engineering.
-- Data Scaling, Imputation, Dimensionality Reduction.
-- Hyperparameter Optimization, Model Training, and Evaluation.
-
 ### Technical Requirements
 
 - Python 3.x
 - Libraries: pandas, numpy, sklearn, xgboost, optuna, re
 
-### Usage
+### Prediction Module Usage
 
 ```python
 new_query = """SELECT * FROM "database"."table" WHERE date = '2023-07-07';"""
