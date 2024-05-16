@@ -6,6 +6,14 @@ This project comprises a suite of Python scripts designed to analyze SQL query l
 2. **`transform_query_logs.py`**: Processes SQL query logs stored in JSON format and converts them into a CSV file.
 3. **`prediction.py`**: Predicts the memory usage of SQL queries based on extracted features using an XGBoost model.
 
+## Project Diagrams
+
+### Current Architecture Diagram
+![current-architecture](images/current-architecture.png)
+
+### New Architecture Diagram
+![new-architecture](images/new-architecture.png)
+
 ## Part 1: `parse_athena_executions.py`
 
 ### Features
