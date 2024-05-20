@@ -20,10 +20,21 @@ sudo rm -rf .pytest_cache
 sudo rm -rf .ruff_cache
 
 echo "Cleaning up docker resourses"
-sudo docker stop $(sudo docker ps -aq)
-sudo docker rm $(sudo docker ps -aq)
-sudo docker rmi $(sudo docker images -q)
-sudo docker image prune -a
-sudo docker container prune
-sudo docker volume prune
-sudo docker system prune
+# Stop running containers
+if [[ -n $(sudo docker ps -q) ]]; then
+    sudo docker stop $(sudo docker ps -q) || true
+fi
+
+# Remove stopped containers
+if [[ -n $(sudo docker ps -a -q) ]]; then
+    sudo docker rm $(sudo docker ps -a -q) || true
+fi
+
+# Remove unused images
+if [[ -n $(sudo docker images -q) ]]; then
+    sudo docker rmi $(sudo docker images -q) || true
+fi
+sudo docker image prune -a -f
+sudo docker container prune -f
+sudo docker volume prune -f
+sudo docker system prune -f

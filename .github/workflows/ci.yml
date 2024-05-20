@@ -33,4 +33,4 @@ jobs:
           pip install -r requirements.txt
       - name: Run tests
         run: |
-          bash run-tests.sh          
+          make test        
