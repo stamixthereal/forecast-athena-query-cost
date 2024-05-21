@@ -9,6 +9,7 @@ __pycache__/
 .vscode
 data/raw/
 data/processed/
+src/model/
 
 # C extensions
 *.so
