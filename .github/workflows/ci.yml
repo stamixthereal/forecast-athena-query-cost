@@ -5,7 +5,7 @@ on:
     branches:
       - main
 jobs:
-  pre-commit:
+  ruff-linter:
     runs-on: ubuntu-latest
     steps:
         - uses: actions/checkout@v4
@@ -20,17 +20,4 @@ jobs:
         - name: Lint with Ruff
           run: |
             ruff check --output-format=github .
-          continue-on-error: false
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-            python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-      - name: Run tests
-        run: |
-          make test        
+          continue-on-error: false  

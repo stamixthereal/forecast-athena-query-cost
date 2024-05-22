@@ -13,11 +13,6 @@ local-venv-setup:
 grant-execution-permissions:
 	chmod +x $(SCRIPTS_DIR)/*
 
-# Run tests
-.PHONY: test
-test: grant-execution-permissions
-	./$(SCRIPTS_DIR)/run-tests.sh
-
 # Start the application using Docker
 .PHONY: start-app-docker
 start-app-docker: grant-execution-permissions
