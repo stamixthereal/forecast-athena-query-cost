@@ -7,23 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from typing import Any, Dict, List
 
-import boto3
-
-from src.utils.config import DEFAULT_REGION_NAME, DEFAULT_DIR_RAW_DATA, logger
-
-# Load AWS credentials from environment variables
-aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-aws_session_token = os.getenv("AWS_SESSION_TOKEN")
-aws_default_region = os.getenv("AWS_DEFAULT_REGION")
-
-# Create a session using the loaded credentials
-session = boto3.Session(
-    aws_access_key_id=aws_access_key_id,
-    aws_secret_access_key=aws_secret_access_key,
-    aws_session_token=aws_session_token,
-    region_name=aws_default_region,
-)
+from src.utils.config import AWS_DEFAULT_REGION, DEFAULT_DIR_RAW_DATA, logger, session
 
 
 class QueryLogDownloader:
@@ -37,7 +21,7 @@ class QueryLogDownloader:
     def __init__(
         self,
         output_dir: str = DEFAULT_DIR_RAW_DATA,
-        region_name: str = DEFAULT_REGION_NAME,
+        region_name: str = AWS_DEFAULT_REGION,
     ):
         """
         Initialize the QueryLogDownloader.
@@ -61,34 +45,25 @@ class QueryLogDownloader:
         - Downloads query logs for each workgroup concurrently using ThreadPoolExecutor.
         - Logs the completion of the download process.
 
-        Note:
-        If any errors occur during the download process, they are logged using the `logger.error` method.
-
         :return: None
         """
-        try:
-            os.makedirs(self.output_dir, exist_ok=True)
-            workgroups = WorkgroupManager(self.region_name).list_workgroups()
+        os.makedirs(self.output_dir, exist_ok=True)
+        workgroups = WorkgroupManager(self.region_name).list_workgroups()
 
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                futures = [
-                    executor.submit(
-                        self._download_query_logs_for_workgroup,
-                        self.output_dir,
-                        workgroup,
-                    )
-                    for workgroup in workgroups
-                ]
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            futures = [
+                executor.submit(
+                    self._download_query_logs_for_workgroup,
+                    self.output_dir,
+                    workgroup,
+                )
+                for workgroup in workgroups
+            ]
 
-                for future in as_completed(futures):
-                    try:
-                        future.result()  # Get the result of the completed task (this may raise an exception)
-                    except Exception as e:
-                        logger.error(f"Error during download: {type(e).__name__} - {str(e)}")
+            for future in as_completed(futures):
+                future.result()  # Get the result of the completed task (this may raise an exception)
 
-            logger.info(f"Download complete. Query logs are stored in: {self.output_dir}")
-        except Exception as e:
-            logger.error(f"Error during download: {type(e).__name__} - {str(e)}")
+        logger.info(f"Download complete. Query logs are stored in: {self.output_dir}")
 
     @staticmethod
     def _download_query_logs_for_workgroup(output_dir: str, workgroup: Dict[str, Any]) -> None:
@@ -102,10 +77,7 @@ class QueryLogDownloader:
 
         - Constructs an AWS CLI command to list query executions for the workgroup and retrieve the query execution IDs.
         - Downloads each query log using the AWS Athena client.
-        - Logs the progress and errors during the download process.
-
-        Note:
-        If any errors occur during the download process, they are logged using the `logger.error` method.
+        - Logs the progress during the download process.
 
         :return: None
         """
@@ -121,14 +93,14 @@ class WorkgroupManager:
     :param region_name: The AWS region name (default is "us-east-1").
     """
 
-    def __init__(self, region_name: str = DEFAULT_REGION_NAME):
+    def __init__(self, region_name: str = AWS_DEFAULT_REGION):
         """
         Initialize the WorkgroupManager.
 
         :param region_name: The AWS region name (default is "us-east-1").
         """
         self.region_name = region_name
-        self.athena = boto3.client("athena", region_name=self.region_name)
+        self.athena = session.client("athena")
 
     def list_workgroups(self) -> List[Dict[str, Any]]:
         """
@@ -136,11 +108,7 @@ class WorkgroupManager:
 
         :return: A list of workgroup dictionaries.
         """
-        try:
-            return self.athena.list_work_groups()["WorkGroups"]
-        except Exception as e:
-            logger.error(f"Error listing workgroups: {str(e)}")
-            return []
+        return self.athena.list_work_groups()["WorkGroups"]
 
 
 class QueryLogManager:
@@ -151,7 +119,7 @@ class QueryLogManager:
     :param workgroup_name: The name of the workgroup.
     """
 
-    def __init__(self, output_dir: str, workgroup_name: str, region_name: str = DEFAULT_REGION_NAME):
+    def __init__(self, output_dir: str, workgroup_name: str, region_name: str = AWS_DEFAULT_REGION):
         """
         Initialize the QueryLogManager.
 
@@ -160,7 +128,7 @@ class QueryLogManager:
         """
         self.output_dir = output_dir
         self.workgroup_name = workgroup_name
-        self.athena = boto3.client("athena", region_name=region_name)
+        self.athena = session.client("athena", region_name=region_name)
 
     def download_query_logs(self) -> None:
         """
@@ -170,29 +138,21 @@ class QueryLogManager:
 
         - Constructs an AWS CLI command to list query executions for the workgroup and retrieve the query execution IDs.
         - Downloads each query log using the AWS Athena client.
-        - Logs the progress and errors during the download process.
-
-        Note:
-        If any errors occur during the download process, they are logged using the `logger.error` method.
+        - Logs the progress during the download process.
 
         :return: None
         """
-        aws_cli_command = f"aws athena list-query-executions --work-group {self.workgroup_name} --output json | jq -r"
-        try:
-            result = subprocess.run(aws_cli_command, shell=True, capture_output=True, text=True, check=True)
+        aws_cli_command = f"aws athena list-query-executions --work-group {self.workgroup_name} --region {AWS_DEFAULT_REGION} --output json | jq -r"
+        
+        result = subprocess.run(aws_cli_command, shell=True, capture_output=True, text=True, check=True)
+        print(result)
+        if result.stdout:
             output_list = json.loads(result.stdout)["QueryExecutionIds"]
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error running AWS CLI command: {type(e).__name__} - {str(e)}")
-            return
-        except Exception as e:
-            logger.error(f"Error during query log download: {type(e).__name__} - {str(e)}")
-            return
 
-        query_execution_ids = [execution_id for execution_id in output_list]
+            query_execution_ids = [execution_id for execution_id in output_list]
 
-        for query_execution_id in query_execution_ids:
-            logger.info(f"Downloading query log for execution ID: {query_execution_id}")
-            try:
+            for query_execution_id in query_execution_ids:
+                logger.info(f"Downloading query log for execution ID: {query_execution_id}")
                 response = self.athena.get_query_execution(QueryExecutionId=query_execution_id)
                 query_log = json.dumps(
                     response["QueryExecution"],
@@ -205,8 +165,6 @@ class QueryLogManager:
                     f.write(query_log)
 
                 logger.info(f"Downloaded query log for execution ID: {query_execution_id}")
-            except Exception as e:
-                logger.error(f"Error during query log download: {type(e).__name__} - {str(e)}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -225,7 +183,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--region-name",
         "-r",
-        default=DEFAULT_REGION_NAME,
+        default=AWS_DEFAULT_REGION,
         help="The AWS region name where Athena is located. Default is 'us-east-1'.",
     )
 

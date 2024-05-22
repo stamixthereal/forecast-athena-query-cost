@@ -1,5 +1,6 @@
 # Ignore Python bytecode files
 __pycache__
+.ruff_cache/
 
 # Ignore compiled Python files
 *.pyc
@@ -12,6 +13,7 @@ Thumbs.db
 venv/
 .env
 .venv
+.env.template
 
 # Ignore logs
 logs/

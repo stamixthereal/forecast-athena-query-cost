@@ -2,10 +2,6 @@ from src.app.transform_query_logs import main as transform_main
 from src.app.parse_athena_executions import main as parse_athena_main
 from src.app.prediction import main as execute_prediction
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 def main():
     """

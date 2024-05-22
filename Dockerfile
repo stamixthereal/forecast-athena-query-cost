@@ -1,25 +1,19 @@
 FROM python:3.12.3-slim
 
 # Combine package installations
-RUN apt-get update \
+RUN apt-get -qq update \
     && apt-get install -y --no-install-recommends \
         awscli \
         jq \
+    && apt-get -qq -y install curl \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://get.docker.com | sh
 
 COPY . /forecast-sql-query
 
 RUN pip install --no-cache-dir -r /forecast-sql-query/requirements.txt
 
-ENV ENV_FILE_LOCATION .env
-
 WORKDIR /forecast-sql-query
 
-# Use the loaded credentials to configure AWS CLI
-RUN aws configure set aws_access_key_id $(grep -oP '^AWS_ACCESS_KEY_ID=\K.*' $ENV_FILE_LOCATION) \
-    && aws configure set aws_secret_access_key $(grep -oP '^AWS_SECRET_ACCESS_KEY=\K.*' $ENV_FILE_LOCATION)
-
-# Set up a volume to sync local changes with the container
-VOLUME /forecast-sql-query
-
-CMD ["python", "main.py"]
+CMD ["streamlit", "run", "src/ui/main.py"]
