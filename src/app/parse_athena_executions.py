@@ -143,7 +143,7 @@ class QueryLogManager:
         :return: None
         """
         aws_cli_command = f"aws athena list-query-executions --work-group {self.workgroup_name} --region {AWS_DEFAULT_REGION} --output json | jq -r"
-        
+
         result = subprocess.run(aws_cli_command, shell=True, capture_output=True, text=True, check=True)
         print(result)
         if result.stdout:

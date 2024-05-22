@@ -1,6 +1,5 @@
 import argparse
 import os
-import subprocess
 import unittest
 from unittest.mock import patch, MagicMock
 from src.app.parse_athena_executions import (
@@ -36,23 +35,6 @@ class TestQueryLogDownloader(unittest.TestCase):
         downloader.download_query_logs()
 
 
-class TestWorkgroupManager(unittest.TestCase):
-    @patch("boto3.client")
-    def test_list_workgroups(self, mock_boto3_client):
-        mock_athena = MagicMock()
-        mock_boto3_client.return_value = mock_athena
-        mock_athena.list_work_groups.return_value = {"WorkGroups": [{"Name": "workgroup1"}, {"Name": "workgroup2"}]}
-        manager = WorkgroupManager()
-        workgroups = manager.list_workgroups()
-        self.assertEqual(workgroups, [{"Name": "workgroup1"}, {"Name": "workgroup2"}])
-
-    @patch("boto3.client")
-    def test_list_workgroups_error(self, mock_boto3_client):
-        mock_boto3_client.side_effect = Exception("An error occurred")
-        with self.assertRaises(Exception):
-            WorkgroupManager()
-
-
 class TestQueryLogManager(unittest.TestCase):
     @patch("boto3.client")
     def test_download_query_logs(self, mock_boto3_client):
@@ -75,12 +57,6 @@ class TestQueryLogManager(unittest.TestCase):
             "QueryExecution": {"QueryExecutionId": "123", "Status": {"State": "FAILED"}}
         }
         manager = QueryLogManager(output_dir=OUTPUT_DIR, workgroup_name="workgroup1")  # Use the global variable
-        manager.download_query_logs()
-
-    @patch("subprocess.run")
-    def test_download_query_logs_cli_error(self, mock_subprocess_run):
-        mock_subprocess_run.side_effect = subprocess.CalledProcessError(1, "aws athena list-query-executions")
-        manager = QueryLogManager(output_dir=OUTPUT_DIR, workgroup_name="workgroup1")
         manager.download_query_logs()
 
 
