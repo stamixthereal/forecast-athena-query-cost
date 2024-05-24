@@ -1,9 +1,9 @@
-import time
-import streamlit as st
-import pandas as pd
-
-import sys
 import os
+import sys
+import time
+
+import pandas as pd
+import streamlit as st
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.utils.config import DEFAULT_DIR_RAW_DATA, DEFAULT_OUTPUT_FILE
@@ -20,7 +20,6 @@ from helpers import (
 
 from src.app import prediction, parse_athena_executions, transform_query_logs
 
-
 st.title("Forecast AWS Athena Query Application")
 
 st.write("### Choose an action:")
@@ -28,7 +27,6 @@ process_button = st.button("Process Athena Executions")
 transform_button = st.button("Transform Query Logs")
 prediction_button = st.button("Make Prediction")
 clean_button = st.button("Clear All Local Cache", type="primary")
-
 
 if "state" not in st.session_state:
     st.session_state.state = False
@@ -181,6 +179,7 @@ elif transform_button:
             transform_query_logs.main()
             df = pd.read_csv(DEFAULT_OUTPUT_FILE)
             st.dataframe(df)
+
 
     transform()
 
