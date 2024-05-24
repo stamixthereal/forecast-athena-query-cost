@@ -31,7 +31,6 @@ clean_button = st.button("Clear All Local Cache", type="primary")
 if "state" not in st.session_state:
     st.session_state.state = False
 
-
 def change_state():
     st.session_state.state = True
 
@@ -46,7 +45,7 @@ def run_prediction():
         )
         submit = st.form_submit_button(label="Submit", use_container_width=True)
     if submit:
-        st.info(f"Prediction for the query: {query_string[:40]}... has been started")
+        st.info(f"Prediction for the query: {query_string[:40]}... has been started")   
         with st.spinner("Operation in progress. Please wait..."):
             results = prediction.main(query_string)
             prediction_data = {
@@ -67,9 +66,10 @@ def run_prediction():
                     results["r2"],
                 ],
             }
-
+            st.success("**Here are prediction results!**", icon="🔥") 
             st.write("### Prediction Results")
             st.table(prediction_data)
+            st.session_state.prediction_button = False
 
 
 @st.experimental_dialog("You are trying to run the parsing process")
@@ -133,32 +133,26 @@ def clean_resources():
     if st.button("Clean Selected Resources", type="primary"):
         with st.status("Cleaning resources...", expanded=True) as status:
             if clean_pycache_checkbox:
-                st.write("Cleaning Python Cache (__pycache__)...")
                 clean_pycache()
                 time.sleep(1)
                 st.write("Cleaned Python Cache (__pycache__)")
             if clean_processed_data_checkbox:
-                st.write("Cleaning Processed Data...")
                 clean_processed_data()
                 time.sleep(1)
                 st.write("Cleaned Processed Data")
             if clean_raw_data_checkbox:
-                st.write("Cleaning Raw Data...")
                 clean_raw_data()
                 time.sleep(1)
                 st.write("Cleaned Raw Data")
             if clean_ml_model_checkbox:
-                st.write("Cleaning ML Model Data...")
                 clean_ml_model()
                 time.sleep(1)
                 st.write("Cleaned ML Model Data")
             if clean_python_cache_checkbox:
-                st.write("Cleaning Python Cache (.pytest_cache, .ruff_cache)...")
                 clean_python_cache()
                 time.sleep(1)
                 st.write("Cleaned Python Cache (.pytest_cache, .ruff_cache)")
             if clean_docker_resources_checkbox:
-                st.write("Cleaning Docker Resources...")
                 clean_docker_resources()
                 time.sleep(1)
                 st.write("Cleaned Docker Resources")

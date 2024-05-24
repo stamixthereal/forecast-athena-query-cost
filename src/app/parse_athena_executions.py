@@ -31,7 +31,7 @@ class QueryLogDownloader:
         """
         self.output_dir = output_dir
         self.region_name = region_name
-        self.max_workers = min(cpu_count(), 10)  # Set max_workers based on CPU cores (up to 10)
+        self.max_workers = min(cpu_count(), 20)
 
     def download_query_logs(self) -> None:
         """
@@ -61,7 +61,7 @@ class QueryLogDownloader:
             ]
 
             for future in as_completed(futures):
-                future.result()  # Get the result of the completed task (this may raise an exception)
+                future.result()  #NOTE: Get the result of the completed task (this may raise an exception)
 
         logger.info(f"Download complete. Query logs are stored in: {self.output_dir}")
 
@@ -142,28 +142,31 @@ class QueryLogManager:
 
         :return: None
         """
-        aws_cli_command = f"aws athena list-query-executions --work-group {self.workgroup_name} --region {AWS_DEFAULT_REGION} --output json | jq -r"
+        query_execution_ids = self._list_query_executions()
 
-        result = subprocess.run(aws_cli_command, shell=True, capture_output=True, text=True, check=True)
-        if result.stdout:
-            output_list = json.loads(result.stdout)["QueryExecutionIds"]
+        for query_execution_id in query_execution_ids:
+            logger.info(f"Downloading query log for execution ID: {query_execution_id}")
+            response = self.athena.get_query_execution(QueryExecutionId=query_execution_id)
+            query_log = json.dumps(
+                response["QueryExecution"],
+                indent=4,
+                default=lambda x: x.isoformat() if isinstance(x, datetime.datetime) else x,
+            )
 
-            query_execution_ids = [execution_id for execution_id in output_list]
+            log_file_path = os.path.join(self.output_dir, f"{self.workgroup_name}-{query_execution_id}.json")
+            with open(log_file_path, "w") as f:
+                f.write(query_log)
 
-            for query_execution_id in query_execution_ids:
-                logger.info(f"Downloading query log for execution ID: {query_execution_id}")
-                response = self.athena.get_query_execution(QueryExecutionId=query_execution_id)
-                query_log = json.dumps(
-                    response["QueryExecution"],
-                    indent=4,
-                    default=lambda x: x.isoformat() if isinstance(x, datetime.datetime) else x,
-                )
+            logger.info(f"Downloaded query log for execution ID: {query_execution_id}")
+    
+    def _list_query_executions(self) -> List[str]:
+        """
+        List query execution IDs for the workgroup using boto3 instead of subprocess.
 
-                log_file_path = os.path.join(self.output_dir, f"{self.workgroup_name}-{query_execution_id}.json")
-                with open(log_file_path, "w") as f:
-                    f.write(query_log)
-
-                logger.info(f"Downloaded query log for execution ID: {query_execution_id}")
+        :return: A list of query execution IDs.
+        """
+        response = self.athena.list_query_executions(WorkGroup=self.workgroup_name)
+        return response.get("QueryExecutionIds", [])
 
 
 def parse_args() -> argparse.Namespace:
