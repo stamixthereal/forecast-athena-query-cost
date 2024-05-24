@@ -2,7 +2,6 @@ import argparse
 import datetime
 import json
 import os
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from typing import Any, Dict, List
