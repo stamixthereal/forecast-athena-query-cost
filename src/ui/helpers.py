@@ -1,3 +1,4 @@
+from functools import wraps
 import os
 import shutil
 import subprocess
@@ -68,16 +69,29 @@ def clean_up_resources():
     clean_docker_resources()
 
 
-def run_script_and_display_output(script_path):
-    with st.spinner("Operation in progress. Please wait..."):
-        env = os.environ.copy()
-        env["PYTHONPATH"] = f"{os.getcwd()}"
-        result = subprocess.run(["python3", script_path], capture_output=True, text=True, env=env)
-        stdout, stderr = result.stdout, result.stderr
-        if stdout:
-            st.success("Operation completed successfully")
-            with st.expander("Output results:"):
-                st.text(stdout)
-        if stderr:
-            with st.expander("Logs for the job:"):
-                st.text(stderr)
+def check_file_exists(file_path):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if os.path.exists(file_path):
+                return func(*args, **kwargs)
+            else:
+                st.warning("File not found, please parse logs first :)", icon="⚠️")
+
+        return wrapper
+
+    return decorator
+
+
+def check_directory_empty(directory_path):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if any(file for file in os.listdir(directory_path) if file != ".gitkeep"):
+                return func(*args, **kwargs)
+            else:
+                st.warning("No files found in the directory, please parse logs first :)", icon="⚠️")
+
+        return wrapper
+
+    return decorator

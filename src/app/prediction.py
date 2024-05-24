@@ -16,7 +16,7 @@ from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 from src.utils.config import DEFAULT_OUTPUT_FILE, DEFAULT_MODEL_FILE
 
 
-def train_and_evaluate_model():
+def train_and_evaluate_model(query):
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 
     warnings.filterwarnings("ignore")
@@ -318,7 +318,7 @@ def train_and_evaluate_model():
     xgb_predictions = best_xgb_model.predict(X_test_poly)
 
     # Prediction for a new query
-    new_query = """SELECT * FROM "hdl-uat-catalog-db"."quote" WHERE cdfdate = date('2023-07-07');""".upper()
+    new_query = query.upper()
     logging.info(f"Predicting memory for new query: {new_query[:50]}...")
     new_features = extract_features(new_query)
     new_interactions = manual_interactions(new_features)
@@ -359,9 +359,27 @@ def train_and_evaluate_model():
     print(f"Mean absolute error (MAE): {mae}")
     print(f"R-squared (R^2): {r2}")
 
+    result = {}
 
-def main():
-    train_and_evaluate_model()
+    # Feature Importance
+    result["top_10_important_features"] = sorted_idx.tolist()
+
+    # Cross-validation
+    result["average_rmse_from_cross_validation"] = rmse
+
+    # Saving the model
+    result["predicted_memory"] = predicted_memory
+    result["lower_bound"] = lower_bound
+    result["upper_bound"] = upper_bound
+    result["mse"] = mse
+    result["mae"] = mae
+    result["r2"] = r2
+
+    return result
+
+
+def main(query):
+    return train_and_evaluate_model(query)
 
 
 if __name__ == "__main__":
