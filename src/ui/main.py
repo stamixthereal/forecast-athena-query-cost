@@ -31,6 +31,7 @@ clean_button = st.button("Clear All Local Cache", type="primary")
 if "state" not in st.session_state:
     st.session_state.state = False
 
+
 def change_state():
     st.session_state.state = True
 
@@ -45,7 +46,7 @@ def run_prediction():
         )
         submit = st.form_submit_button(label="Submit", use_container_width=True)
     if submit:
-        st.info(f"Prediction for the query: {query_string[:40]}... has been started")   
+        st.info(f"Prediction for the query: {query_string[:40]}... has been started")
         with st.spinner("Operation in progress. Please wait..."):
             results = prediction.main(query_string)
             prediction_data = {
@@ -66,7 +67,7 @@ def run_prediction():
                     results["r2"],
                 ],
             }
-            st.success("**Here are prediction results!**", icon="🔥") 
+            st.success("**Here are prediction results!**", icon="🔥")
             st.write("### Prediction Results")
             st.table(prediction_data)
             st.session_state.prediction_button = False
@@ -173,7 +174,6 @@ elif transform_button:
             transform_query_logs.main()
             df = pd.read_csv(DEFAULT_OUTPUT_FILE)
             st.dataframe(df)
-
 
     transform()
 

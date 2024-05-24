@@ -61,7 +61,7 @@ class QueryLogDownloader:
             ]
 
             for future in as_completed(futures):
-                future.result()  #NOTE: Get the result of the completed task (this may raise an exception)
+                future.result()  # NOTE: Get the result of the completed task (this may raise an exception)
 
         logger.info(f"Download complete. Query logs are stored in: {self.output_dir}")
 
@@ -158,7 +158,7 @@ class QueryLogManager:
                 f.write(query_log)
 
             logger.info(f"Downloaded query log for execution ID: {query_execution_id}")
-    
+
     def _list_query_executions(self) -> List[str]:
         """
         List query execution IDs for the workgroup using boto3 instead of subprocess.
