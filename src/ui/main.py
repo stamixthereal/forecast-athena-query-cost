@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-from src.utils.config import DEFAULT_DIR_RAW_DATA, DEFAULT_OUTPUT_FILE
+from src.utils.config import DEFAULT_DIR_RAW_DATA, DEFAULT_OUTPUT_FILE, update_session
 from helpers import (
     check_file_exists,
     clean_pycache,
@@ -23,13 +23,16 @@ from src.app import prediction, parse_athena_executions, transform_query_logs
 st.title("Forecast AWS Athena Query Application")
 
 st.write("### Choose an action:")
-process_button = st.button("Process Athena Executions")
-transform_button = st.button("Transform Query Logs")
-prediction_button = st.button("Make Prediction")
-clean_button = st.button("Clear All Local Cache", type="primary")
+process_button = st.button("Process Athena Executions", use_container_width=True)
+transform_button = st.button("Transform Query Logs", use_container_width=True)
+prediction_button = st.button("Make Prediction", use_container_width=True)
+clean_button = st.button("Clear All Local Cache", type="primary", use_container_width=True)
 
 if "state" not in st.session_state:
     st.session_state.state = False
+
+if "aws_credentials" not in st.session_state:
+    st.session_state.aws_credentials = None
 
 
 def change_state():
@@ -74,16 +77,44 @@ def run_prediction():
 
 
 @st.experimental_dialog("You are trying to run the parsing process")
-def run_parsing_process():
+def run_parsing_process(session):
     st.info("That will take a while, do you want to proceed?", icon="ℹ️")
     col1, col2 = st.columns(spec=2, gap="small")
     with col1:
         if st.button("Yes", use_container_width=True, on_click=change_state):
             with st.spinner("Operation in progress. Please wait..."):
-                parse_athena_executions.main()
+                parse_athena_executions.main(session=session)
                 st.rerun()
     with col2:
         if st.button("No", type="primary", use_container_width=True):
+            st.rerun()
+
+
+@st.experimental_dialog("AWS Credentials")
+def set_aws_credentials():
+    st.info("Write down your AWS credentials")
+    with st.form("get-aws-creds"):
+        aws_access_key_id = st.text_input("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = st.text_input("AWS_SECRET_ACCESS_KEY", type="password")
+        aws_session_token = st.text_input("AWS_SESSION_TOKEN", type="password")
+        aws_default_region = st.text_input("AWS_DEFAULT_REGION", value="us-east-1")
+
+        submit_button = st.form_submit_button("Submit", use_container_width=True, type="primary")
+
+    if submit_button:
+        if not aws_access_key_id or not aws_secret_access_key or not aws_session_token or not aws_default_region:
+            st.error("All fields are required!")
+        else:
+            session = update_session(
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_session_token=aws_session_token,
+                aws_default_region=aws_default_region,
+            )
+
+            session.client("athena")
+
+            st.session_state.aws_credentials = session
             st.rerun()
 
 
@@ -162,7 +193,10 @@ def clean_resources():
 
 
 if process_button:
-    run_parsing_process()
+    if st.session_state.aws_credentials:
+        run_parsing_process(st.session_state.aws_credentials)
+    else:
+        set_aws_credentials()
 
 elif transform_button:
 

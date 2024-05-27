@@ -6,7 +6,5 @@ services:
     container_name: forecast-sql-container
     ports:
       - "8501:8501"
-    env_file:
-      - .env
     volumes:
       - .:/forecast-sql-query
