@@ -78,7 +78,7 @@ def run_prediction():
 
 @st.experimental_dialog("You are trying to run the parsing process")
 def run_parsing_process(session):
-    st.info("That will take a while, do you want to proceed?", icon="ℹ️")
+    st.info("That will take a while, do you want to proceed?")
     col1, col2 = st.columns(spec=2, gap="small")
     with col1:
         if st.button("Yes", use_container_width=True, on_click=change_state):
@@ -111,12 +111,12 @@ def set_aws_credentials():
                 aws_session_token=aws_session_token,
                 aws_default_region=aws_default_region,
             )
-
-            session.client("athena")
-
-            st.session_state.aws_credentials = session
-            st.rerun()
-
+            try:
+                session.client("athena").list_work_groups()
+                st.session_state.aws_credentials = session
+                st.rerun()
+            except Exception:
+                st.warning("Please add valid AWS credentials")
 
 @st.experimental_dialog("Clean Up Resources")
 def clean_resources():
