@@ -147,7 +147,8 @@ def clean_resources():
     clean_pycache_checkbox = st.checkbox("Clean Python Cache", value=st.session_state.clean_pycache)
     clean_processed_data_checkbox = st.checkbox("Clean Processed Data", value=st.session_state.clean_processed_data)
     clean_raw_data_checkbox = st.checkbox("Clean Raw Data", value=st.session_state.clean_raw_data)
-    if platform.processor() and "clean_docker_resources" in st.session_state:
+    clean_docker_resources_checkbox = None
+    if not platform.processor() and "clean_docker_resources" in st.session_state:
         clean_docker_resources_checkbox = st.checkbox(
             "Clean Docker Resources", value=st.session_state.clean_docker_resources
         )
@@ -185,7 +186,7 @@ def clean_resources():
                     clean_ml_model()
                     time.sleep(1)
                     st.write("Cleaned ML Model Data")
-                if "clean_docker_resources_checkbox" in locals() and clean_docker_resources_checkbox:
+                if clean_docker_resources_checkbox:
                     clean_docker_resources()
                     time.sleep(1)
                     st.write("Cleaned Docker Resources")
