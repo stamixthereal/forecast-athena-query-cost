@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 import subprocess
 from functools import wraps
@@ -155,9 +156,10 @@ def clean_resources():
     clean_python_cache_checkbox = st.checkbox(
         "Clean Python Cache (.pytest_cache, .ruff_cache)", value=st.session_state.clean_python_cache
     )
-    clean_docker_resources_checkbox = st.checkbox(
-        "Clean Docker Resources", value=st.session_state.clean_docker_resources
-    )
+    if platform.processor():
+        clean_docker_resources_checkbox = st.checkbox(
+            "Clean Docker Resources", value=st.session_state.clean_docker_resources
+        )
 
     if st.button("Clean Selected Resources", type="primary"):
         with st.status("Cleaning resources...", expanded=True) as status:

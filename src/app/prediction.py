@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import warnings
 
@@ -24,6 +25,7 @@ def train_and_evaluate_model(query):
     # Constants
     LOWER_ALPHA = 0.05
     UPPER_ALPHA = 0.95
+    BYTES_IN_ONE_GB = 1_073_741_824  # 2^30
 
     # Load the sample dataset
     logging.info("Loading the dataset...")
@@ -167,190 +169,106 @@ def train_and_evaluate_model(query):
     X_valid_interactions = [manual_interactions(features) for features in X_valid_features]
     X_test_interactions = [manual_interactions(features) for features in X_test_features]
 
-    X_train = np.hstack((X_train_features, X_train_interactions))
-    X_valid = np.hstack((X_valid_features, X_valid_interactions))
-    X_test = np.hstack((X_test_features, X_test_interactions))
+    # Append interactions to features
+    X_train_final = [features + list(interactions) for features, interactions in zip(X_train_features, X_train_interactions)]
+    X_valid_final = [features + list(interactions) for features, interactions in zip(X_valid_features, X_valid_interactions)]
+    X_test_final = [features + list(interactions) for features, interactions in zip(X_test_features, X_test_interactions)]
+
+    # Convert to numpy arrays
+    X_train_final = np.array(X_train_final)
+    X_valid_final = np.array(X_valid_final)
+    X_test_final = np.array(X_test_final)
 
     # Polynomial Features
-    poly = PolynomialFeatures(2)
-    X_train_poly = poly.fit_transform(X_train)
-    X_valid_poly = poly.transform(X_valid)
-    X_test_poly = poly.transform(X_test)
+    logging.info("Generating polynomial features...")
+    poly = PolynomialFeatures(degree=2, include_bias=False, interaction_only=True)
+    X_train_poly = poly.fit_transform(X_train_final)
+    X_valid_poly = poly.transform(X_valid_final)
+    X_test_poly = poly.transform(X_test_final)
 
-    # Feature Scaling
-    scaler = StandardScaler()
+    # Scaling
     logging.info("Scaling features...")
-    X_train_poly = scaler.fit_transform(X_train_poly)
-    X_valid_poly = scaler.transform(X_valid_poly)
-    X_test_poly = scaler.transform(X_test_poly)
-
-    # Impute missing values
-    imputer = SimpleImputer(strategy="mean")  # Use an appropriate strategy
-    X_train_poly = imputer.fit_transform(X_train_poly)
-    X_valid_poly = imputer.transform(X_valid_poly)
-    X_test_poly = imputer.transform(X_test_poly)
-
-    # Check for NaN values after imputation
-    if np.isnan(X_train_poly).any() or np.isnan(X_valid_poly).any() or np.isnan(X_test_poly).any():
-        raise ValueError("NaN values are still present in the data after imputation.")
-
-    # PCA for Dimensionality Reduction
-    pca = PCA(n_components=0.95)
-    logging.info("Applying PCA for dimensionality reduction...")
-    X_train_poly = pca.fit_transform(X_train_poly)
-    X_valid_poly = pca.transform(X_valid_poly)
-    X_test_poly = pca.transform(X_test_poly)
-
-    # Clip Outliers for y_train
-    logging.info("Clipping outliers for y_train...")
-    quantile_transform = pd.Series(y_train).quantile([LOWER_ALPHA, UPPER_ALPHA])
-    y_train_clipped = np.clip(y_train, quantile_transform[LOWER_ALPHA], quantile_transform[UPPER_ALPHA])
-
-    # Clip Outliers for y_valid
-    logging.info("Clipping outliers for y_valid...")
-    quantile_transform_valid = pd.Series(y_valid).quantile([LOWER_ALPHA, UPPER_ALPHA])
-    y_valid_clipped = np.clip(
-        y_valid,
-        quantile_transform_valid[LOWER_ALPHA],
-        quantile_transform_valid[UPPER_ALPHA],
-    )
-
-    # Splitting training data to train and smaller validation set
-    X_train_final, X_valid_final, y_train_final, y_valid_final = train_test_split(
-        X_train_poly, y_train_clipped, test_size=0.1, random_state=42
-    )
-
-    logging.info("Starting hyperparameter optimization...")
-
-    def get_trial_parameters(trial):
-        """Get hyperparameters for the trial."""
-
-        # Core parameters
-        params = {
-            "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.3),
-            "n_estimators": trial.suggest_int("n_estimators", 50, 500),
-            "objective": "reg:squarederror",
-            "booster": trial.suggest_categorical("booster", ["gbtree", "gblinear", "dart"]),
-        }
-
-        # Tree-specific parameters
-        if params["booster"] == "gbtree" or params["booster"] == "dart":
-            params.update(
-                {
-                    "max_depth": trial.suggest_int("max_depth", 1, 10),
-                    "subsample": trial.suggest_float("subsample", 0.5, 1),
-                    "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1),
-                    "gamma": trial.suggest_float("gamma", 0.0, 1),
-                    "min_child_weight": trial.suggest_int("min_child_weight", 1, 7),
-                    "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.5, 1),
-                    "scale_pos_weight": trial.suggest_float("scale_pos_weight", 0.5, 1.5),
-                }
-            )
-
-        # Regularization
-        params.update(
-            {
-                "reg_lambda": trial.suggest_float("reg_lambda", 1e-6, 1.0, log=True),
-                "reg_alpha": trial.suggest_float("reg_alpha", 1e-6, 1.0, log=True),
-            }
-        )
-
-        return params
-
-    def train_xgb_model(params, x_train_data, y_train_data, x_valid_data, y_valid_data):
-        """Train the XGBoost model."""
-
-        model = xgb.XGBRegressor(**params)
-
-        eval_set = [(x_train_data, y_train_data), (x_valid_data, y_valid_data)]
-        model.fit(
-            x_train_data,
-            y_train_data,
-            eval_set=eval_set,
-            early_stopping_rounds=10,
-            verbose=False,
-            eval_metric="mae",
-        )
-
-        return model
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train_poly)
+    X_valid_scaled = scaler.transform(X_valid_poly)
+    X_test_scaled = scaler.transform(X_test_poly)
 
     def objective(trial):
-        logging.debug("Starting a new trial...")
+        params = {
+            "verbosity": 0,
+            "n_estimators": 1000,
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
+            "max_depth": trial.suggest_int("max_depth", 3, 10),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "gamma": trial.suggest_float("gamma", 0, 0.5),
+        }
 
-        params = get_trial_parameters(trial)
+        model = xgb.XGBRegressor(**params)
+        model.fit(
+            X_train_scaled,
+            y_train,
+            eval_set=[(X_valid_scaled, y_valid)],
+            early_stopping_rounds=10,
+            verbose=False,
+        )
+        preds = model.predict(X_valid_scaled)
+        rmse = mean_squared_error(y_valid, preds, squared=False)
+        return rmse
 
-        model = train_xgb_model(params, X_train_poly, y_train_clipped, X_valid_poly, y_valid_clipped)
+    if os.path.exists(DEFAULT_MODEL_FILE):
+        logging.info("Loading existing model...")
+        model = xgb.XGBRegressor()
+        model.load_model(DEFAULT_MODEL_FILE)
+    else:
+        logging.info("Tuning hyperparameters with Optuna...")
+        study = optuna.create_study(direction="minimize", pruner=MedianPruner())
+        study.optimize(objective, n_trials=50)
 
-        y_pred = model.predict(X_test_poly)
+        logging.info("Training the final model with best hyperparameters...")
+        best_params = study.best_params
+        model = xgb.XGBRegressor(**best_params)
+        model.fit(
+            X_train_scaled,
+            y_train,
+            eval_set=[(X_valid_scaled, y_valid)],
+            early_stopping_rounds=10,
+            verbose=False,
+        )
+        model.save_model(DEFAULT_MODEL_FILE)
 
-        return mean_absolute_error(y_test, y_pred)
+    logging.info("Evaluating the model on the test set...")
+    y_pred = model.predict(X_test_scaled)
 
-    pruner = MedianPruner(n_warmup_steps=10)
-    study = optuna.create_study(direction="minimize", pruner=pruner)
-    study.optimize(objective, n_trials=50)
-    logging.info(f"Optimization completed with best parameters: {study.best_params}")
+    def calculate_metrics(y_true, y_pred):
+        mse = mean_squared_error(y_true, y_pred)
+        mae = mean_absolute_error(y_true, y_pred)
+        r2 = r2_score(y_true, y_pred)
+        return mse, mae, r2
 
-    logging.info("Training the best model...")
-    best_params = study.best_params
-    best_xgb_model = xgb.XGBRegressor(**best_params)
-    best_xgb_model.fit(X_train_poly, y_train_clipped)
+    mse, mae, r2 = calculate_metrics(y_test, y_pred)
+    logging.info(f"Test MSE: {mse:.2f}")
+    logging.info(f"Test MAE: {mae:.2f}")
+    logging.info(f"Test R2: {r2:.2f}")
 
-    # Feature Importance
-    logging.info("Getting feature importances...")
-    feature_importances = best_xgb_model.feature_importances_
-    sorted_idx = feature_importances.argsort()[-10:][::-1]
-    print(f"Top 10 important features:\n{sorted_idx}")
-
-    # Cross-validation
-    logging.info("Starting cross-validation...")
-    scores = cross_val_score(
-        best_xgb_model,
-        X_train_poly,
-        y_train_clipped,
-        cv=5,
-        scoring="neg_mean_squared_error",
-    )
-    rmse = np.sqrt(-scores.mean())
-    print("Average RMSE from cross-validation:", rmse)
-
-    # Evaluate on Test Data
-    logging.info("Evaluating on test data...")
-    xgb_predictions = best_xgb_model.predict(X_test_poly)
-
-    # Prediction for a new query
-    new_query = query.upper()
-    logging.info(f"Predicting memory for new query: {new_query[:50]}...")
-    new_features = extract_features(new_query)
-    new_interactions = manual_interactions(new_features)
-    new_features_extended = np.hstack([new_features, new_interactions])
-
-    # Apply all transformations
-    new_features_poly = poly.transform([new_features_extended])
-    new_features_scaled = scaler.transform(new_features_poly)
-    new_features_poly_pca = pca.transform(new_features_scaled)
-
-    predicted_memory = best_xgb_model.predict(new_features_poly_pca)[0]
-
-    BYTES_IN_ONE_GB = 1_073_741_824  # 2^30
-
-    # Evaluation Metrics
-    mse = mean_squared_error(y_test, xgb_predictions)
-    mae = mean_absolute_error(y_test, xgb_predictions)
-    r2 = r2_score(y_test, xgb_predictions)
-
-    # Saving the model
-    best_xgb_model.save_model(DEFAULT_MODEL_FILE)
-    logging.info(f"Model saved to: {DEFAULT_MODEL_FILE}")
+    logging.info("Extracting features from the provided query...")
+    query_features = extract_features(query)
+    query_interactions = manual_interactions(query_features)
+    query_final = np.array(query_features + list(query_interactions)).reshape(1, -1)
+    query_poly = poly.transform(query_final)
+    query_scaled = scaler.transform(query_poly)
+    query_pred = model.predict(query_scaled)[0]
 
     # Calculate the lower and upper bound for the prediction using MAE
-    lower_bound = predicted_memory - mae
-    upper_bound = predicted_memory + mae
+    lower_bound = query_pred - mae
+    upper_bound = query_pred + mae
 
-    logging.info(f"Final prediction: {predicted_memory} bytes")
+    logging.info(f"Final prediction: {query_pred} bytes")
     logging.info(f"Prediction range: {lower_bound} bytes to {upper_bound} bytes")
     logging.info(f"Evaluation Metrics - MSE: {mse}, MAE: {mae}, R^2: {r2}")
 
-    print(f"Predicted memory for new query: {predicted_memory:.2f} bytes ({predicted_memory / BYTES_IN_ONE_GB:.2f} GB)")
+    print(f"Predicted memory for new query: {query_pred:.2f} bytes ({query_pred / BYTES_IN_ONE_GB:.2f} GB)")
     print(
         f"Prediction range: {lower_bound:.2f} bytes ({lower_bound / BYTES_IN_ONE_GB:.2f} GB) "
         f"to {upper_bound:.2f} bytes ({upper_bound / BYTES_IN_ONE_GB:.2f} GB)"
@@ -361,14 +279,8 @@ def train_and_evaluate_model(query):
 
     result = {}
 
-    # Feature Importance
-    result["top_10_important_features"] = sorted_idx.tolist()
-
-    # Cross-validation
-    result["average_rmse_from_cross_validation"] = rmse
-
     # Saving the model
-    result["predicted_memory"] = predicted_memory
+    result["predicted_memory"] = query_pred
     result["lower_bound"] = lower_bound
     result["upper_bound"] = upper_bound
     result["mse"] = mse
