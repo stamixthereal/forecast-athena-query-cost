@@ -148,7 +148,7 @@ def clean_resources():
     clean_processed_data_checkbox = st.checkbox("Clean Processed Data", value=st.session_state.clean_processed_data)
     clean_raw_data_checkbox = st.checkbox("Clean Raw Data", value=st.session_state.clean_raw_data)
     clean_docker_resources_checkbox = None
-    if not platform.processor() and "clean_docker_resources" in st.session_state:
+    if platform.processor() and "clean_docker_resources" in st.session_state:
         clean_docker_resources_checkbox = st.checkbox(
             "Clean Docker Resources", value=st.session_state.clean_docker_resources
         )
