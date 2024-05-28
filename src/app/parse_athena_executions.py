@@ -16,9 +16,6 @@ class QueryLogDownloader:
     def __init__(self, session, output_dir: str = DEFAULT_DIR_RAW_DATA):
         """
         Initialize the QueryLogDownloader.
-
-        :param output_dir: The directory where query logs will be stored.
-        :param region_name: The AWS region name (default is "us-east-1").
         """
         self.output_dir = output_dir
         self.session = session
@@ -35,8 +32,6 @@ class QueryLogDownloader:
         - Retrieves a list of workgroups in AWS Athena.
         - Downloads query logs for each workgroup concurrently using ThreadPoolExecutor.
         - Logs the completion of the download process.
-
-        :return: None
         """
         os.makedirs(self.output_dir, exist_ok=True)
         workgroups = self.session.client("athena").list_work_groups()["WorkGroups"]
@@ -63,16 +58,11 @@ class QueryLogDownloader:
         """
         Download query logs for a specific workgroup.
 
-        :param output_dir: The directory where query logs will be stored.
-        :param workgroup_name: The name of the workgroup.
-
         This method is responsible for downloading query logs for a specific workgroup. It executes the following steps:
 
         - Constructs an AWS CLI command to list query executions for the workgroup and retrieve the query execution IDs.
         - Downloads each query log using the AWS Athena client.
         - Logs the progress during the download process.
-
-        :return: None
         """
         logger.info(f"Downloading query logs for workgroup: {workgroup_name}")
         query_log_manager = QueryLogManager(self.session, output_dir, workgroup_name)  # Передаем session
@@ -87,9 +77,6 @@ class QueryLogManager:
     def __init__(self, session, output_dir: str, workgroup_name: str):
         """
         Initialize the QueryLogManager.
-
-        :param output_dir: The directory where query logs will be stored.
-        :param workgroup_name: The name of the workgroup.
         """
         self.output_dir = output_dir
         self.workgroup_name = workgroup_name
@@ -102,11 +89,9 @@ class QueryLogManager:
 
         This method executes the following steps:
 
-        - Constructs an AWS CLI command to list query executions for the workgroup and retrieve the query execution IDs.
+        - Retrieves the query execution IDs for the workgroup.
         - Downloads each query log using the AWS Athena client.
         - Logs the progress during the download process.
-
-        :return: None
         """
         query_execution_ids = self._list_query_executions()
 
@@ -127,9 +112,7 @@ class QueryLogManager:
 
     def _list_query_executions(self) -> List[str]:
         """
-        List query execution IDs for the workgroup using boto3 instead of subprocess.
-
-        :return: A list of query execution IDs.
+        List query execution IDs for the workgroup using boto3.
         """
         response = self.athena.list_query_executions(WorkGroup=self.workgroup_name)
         return response.get("QueryExecutionIds", [])
