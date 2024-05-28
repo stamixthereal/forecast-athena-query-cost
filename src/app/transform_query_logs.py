@@ -70,8 +70,14 @@ def process_query_logs(input_dir: str, output_file: str):
     logger.info(f"Starting the processing of query logs from directory: {input_dir}.")
 
     column_names = [
-        "query_id", "user_", "source", "environment", "catalog", "query", 
-        "peak_memory_bytes", "cpu_time_ms"
+        "query_id",
+        "user_",
+        "source",
+        "environment",
+        "catalog",
+        "query",
+        "peak_memory_bytes",
+        "cpu_time_ms",
     ]
     initialize_csv(output_file, column_names)
 
@@ -83,14 +89,16 @@ def process_query_logs(input_dir: str, output_file: str):
         row = process_file(json_file)
         if row:
             write_row_to_csv(output_file, row)
-        
+
         if count % (total_files // 20) == 0:  # Log every 5%
             logger.info(f"Processed {count}/{total_files} files ({(count/total_files)*100:.2f}%).")
 
     logger.info(f"Processing completed. Data written to {output_file}.")
-    
+
+
 def main():
     process_query_logs(DEFAULT_DIR_RAW_DATA, DEFAULT_OUTPUT_FILE)
+
 
 if __name__ == "__main__":
     main()
