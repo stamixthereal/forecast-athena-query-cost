@@ -156,7 +156,7 @@ def clean_resources():
     clean_python_cache_checkbox = st.checkbox(
         "Clean Python Cache (.pytest_cache, .ruff_cache)", value=st.session_state.clean_python_cache
     )
-    if platform.processor():
+    if platform.processor() and "clean_docker_resources" in st.session_state:
         clean_docker_resources_checkbox = st.checkbox(
             "Clean Docker Resources", value=st.session_state.clean_docker_resources
         )
@@ -183,7 +183,7 @@ def clean_resources():
                 clean_python_cache()
                 time.sleep(1)
                 st.write("Cleaned Python Cache (.pytest_cache, .ruff_cache)")
-            if clean_docker_resources_checkbox:
+            if "clean_docker_resources_checkbox" in locals() and clean_docker_resources_checkbox:
                 clean_docker_resources()
                 time.sleep(1)
                 st.write("Cleaned Docker Resources")

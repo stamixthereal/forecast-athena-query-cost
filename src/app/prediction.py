@@ -8,10 +8,8 @@ import optuna
 import pandas as pd
 import xgboost as xgb
 from optuna.pruners import MedianPruner
-from sklearn.decomposition import PCA
-from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 
 from src.utils.config import DEFAULT_OUTPUT_FILE, DEFAULT_MODEL_FILE
@@ -22,9 +20,6 @@ def train_and_evaluate_model(query):
 
     warnings.filterwarnings("ignore")
 
-    # Constants
-    LOWER_ALPHA = 0.05
-    UPPER_ALPHA = 0.95
     BYTES_IN_ONE_GB = 1_073_741_824  # 2^30
 
     # Load the sample dataset
@@ -170,9 +165,15 @@ def train_and_evaluate_model(query):
     X_test_interactions = [manual_interactions(features) for features in X_test_features]
 
     # Append interactions to features
-    X_train_final = [features + list(interactions) for features, interactions in zip(X_train_features, X_train_interactions)]
-    X_valid_final = [features + list(interactions) for features, interactions in zip(X_valid_features, X_valid_interactions)]
-    X_test_final = [features + list(interactions) for features, interactions in zip(X_test_features, X_test_interactions)]
+    X_train_final = [
+        features + list(interactions) for features, interactions in zip(X_train_features, X_train_interactions)
+    ]
+    X_valid_final = [
+        features + list(interactions) for features, interactions in zip(X_valid_features, X_valid_interactions)
+    ]
+    X_test_final = [
+        features + list(interactions) for features, interactions in zip(X_test_features, X_test_interactions)
+    ]
 
     # Convert to numpy arrays
     X_train_final = np.array(X_train_final)
