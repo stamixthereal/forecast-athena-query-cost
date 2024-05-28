@@ -126,8 +126,6 @@ def clean_resources():
         st.session_state.clean_raw_data = False
     if "clean_ml_model" not in st.session_state:
         st.session_state.clean_ml_model = False
-    if "clean_python_cache" not in st.session_state:
-        st.session_state.clean_python_cache = False
     if "clean_docker_resources" not in st.session_state:
         st.session_state.clean_docker_resources = False
 
@@ -137,8 +135,6 @@ def clean_resources():
             st.session_state.clean_pycache = True
             st.session_state.clean_processed_data = True
             st.session_state.clean_raw_data = True
-            st.session_state.clean_ml_model = True
-            st.session_state.clean_python_cache = True
             st.session_state.clean_docker_resources = True
     with col2:
         if st.button("Uncheck All", use_container_width=True):
@@ -146,49 +142,55 @@ def clean_resources():
             st.session_state.clean_processed_data = False
             st.session_state.clean_raw_data = False
             st.session_state.clean_ml_model = False
-            st.session_state.clean_python_cache = False
             st.session_state.clean_docker_resources = False
 
-    clean_pycache_checkbox = st.checkbox("Clean Python Cache (__pycache__)", value=st.session_state.clean_pycache)
+    clean_pycache_checkbox = st.checkbox("Clean Python Cache", value=st.session_state.clean_pycache)
     clean_processed_data_checkbox = st.checkbox("Clean Processed Data", value=st.session_state.clean_processed_data)
     clean_raw_data_checkbox = st.checkbox("Clean Raw Data", value=st.session_state.clean_raw_data)
-    clean_ml_model_checkbox = st.checkbox("Clean ML Model Data", value=st.session_state.clean_ml_model)
-    clean_python_cache_checkbox = st.checkbox(
-        "Clean Python Cache (.pytest_cache, .ruff_cache)", value=st.session_state.clean_python_cache
-    )
     if platform.processor() and "clean_docker_resources" in st.session_state:
         clean_docker_resources_checkbox = st.checkbox(
             "Clean Docker Resources", value=st.session_state.clean_docker_resources
         )
-
-    if st.button("Clean Selected Resources", type="primary"):
-        with st.status("Cleaning resources...", expanded=True) as status:
-            if clean_pycache_checkbox:
-                clean_pycache()
-                time.sleep(1)
-                st.write("Cleaned Python Cache (__pycache__)")
-            if clean_processed_data_checkbox:
-                clean_processed_data()
-                time.sleep(1)
-                st.write("Cleaned Processed Data")
-            if clean_raw_data_checkbox:
-                clean_raw_data()
-                time.sleep(1)
-                st.write("Cleaned Raw Data")
-            if clean_ml_model_checkbox:
-                clean_ml_model()
-                time.sleep(1)
-                st.write("Cleaned ML Model Data")
-            if clean_python_cache_checkbox:
-                clean_python_cache()
-                time.sleep(1)
-                st.write("Cleaned Python Cache (.pytest_cache, .ruff_cache)")
-            if "clean_docker_resources_checkbox" in locals() and clean_docker_resources_checkbox:
-                clean_docker_resources()
-                time.sleep(1)
-                st.write("Cleaned Docker Resources")
-            status.update(label="Cleaning complete!", state="complete", expanded=False)
-        st.success("Selected resources cleaned successfully.")
+    clean_ml_model_checkbox = st.checkbox(
+        ":red[Clean ML Model Data]",
+        value=st.session_state.clean_ml_model,
+        help="If you drop initial model, new model training will be too slow!",
+    )
+    if st.button("Clean Selected Resources", type="primary", use_container_width=True):
+        if (
+            not clean_pycache_checkbox
+            and not clean_processed_data_checkbox
+            and not clean_raw_data_checkbox
+            and not clean_ml_model_checkbox
+            and not clean_docker_resources_checkbox
+        ):
+            st.warning("Please mark necessary points first")
+            st.stop()
+        else:
+            with st.status("Cleaning resources...", expanded=True) as status:
+                if clean_pycache_checkbox:
+                    clean_pycache()
+                    clean_python_cache()
+                    time.sleep(1)
+                    st.write("Cleaned Python Cache: .pytest_cache, .ruff_cache, etc.")
+                if clean_processed_data_checkbox:
+                    clean_processed_data()
+                    time.sleep(1)
+                    st.write("Cleaned Processed Data")
+                if clean_raw_data_checkbox:
+                    clean_raw_data()
+                    time.sleep(1)
+                    st.write("Cleaned Raw Data")
+                if clean_ml_model_checkbox:
+                    clean_ml_model()
+                    time.sleep(1)
+                    st.write("Cleaned ML Model Data")
+                if "clean_docker_resources_checkbox" in locals() and clean_docker_resources_checkbox:
+                    clean_docker_resources()
+                    time.sleep(1)
+                    st.write("Cleaned Docker Resources")
+                status.update(label="Cleaning complete!", state="complete", expanded=False)
+            st.success("Selected resources cleaned successfully.")
 
 
 @st.experimental_dialog("AWS Credentials")
