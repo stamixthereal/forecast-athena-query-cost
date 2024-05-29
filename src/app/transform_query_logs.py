@@ -109,12 +109,12 @@ def process_query_logs(input_dir: str, output_file: str, query_log_result):
         return
     else:
         rows = []
-        for file_path, query_log in enumerate(query_log_result.items()):
-            row = process_file_in_memory(query_log[1])
+        for query_log in query_log_result.values():
+            row = process_file_in_memory(query_log)
             if row:
                 rows.append(row)
         result_df = pd.DataFrame(rows, columns=column_names)
-        logger.info("Data has been processed in memory")
+        logger.info("Data has been processed in memory.")
         return result_df
 
 

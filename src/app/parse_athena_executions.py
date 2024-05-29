@@ -36,7 +36,7 @@ class QueryLogDownloader:
         """
         os.makedirs(self.output_dir, exist_ok=True)
         workgroups = self.session.client("athena").list_work_groups()["WorkGroups"]
-        logger.info(workgroups)
+        logger.info(f"Found workgroups: {workgroups}")
 
         if IS_LOCAL_RUN:
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
