@@ -10,7 +10,13 @@ import streamlit as st
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.app import parse_athena_executions, prediction, transform_query_logs
-from src.utils.config import DEFAULT_DIR_RAW_DATA, DEFAULT_MODEL_FILE, DEFAULT_OUTPUT_FILE, IS_LOCAL_RUN, update_session
+from src.utils.config import (
+    DEFAULT_DIR_RAW_DATA,
+    DEFAULT_MODEL_FILE,
+    DEFAULT_OUTPUT_FILE,
+    IS_LOCAL_RUN,
+    update_aws_session,
+)
 
 
 def clean_pycache():
@@ -249,7 +255,7 @@ def set_aws_credentials():
             st.error("All fields are required!")
             st.stop()
         else:
-            session = update_session(
+            session = update_aws_session(
                 aws_access_key_id=aws_access_key_id,
                 aws_secret_access_key=aws_secret_access_key,
                 aws_session_token=aws_session_token,
