@@ -1,7 +1,9 @@
 import logging
 import os
+import pickle
 import re
 import warnings
+import streamlit as st
 
 import numpy as np
 import optuna
@@ -12,41 +14,16 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 
-from src.utils.config import DEFAULT_OUTPUT_FILE, DEFAULT_MODEL_FILE
+from src.utils.config import DEFAULT_OUTPUT_FILE, DEFAULT_MODEL_FILE, DEFAULT_SCALER_FILE, DEFAULT_POLY_FILE, IS_LOCAL_RUN
 
 
-def train_and_evaluate_model(query):
+def train_and_evaluate_model(query, transform_result, use_pretrained, in_memory_ml_attributes, save_ml_attributes_in_memory):
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 
     warnings.filterwarnings("ignore")
 
     BYTES_IN_ONE_GB = 1_073_741_824  # 2^30
-
-    # Load the sample dataset
-    logging.info("Loading the dataset...")
-    data = pd.read_csv(DEFAULT_OUTPUT_FILE)
-    logging.info(f"Loaded {len(data)} rows of data.")
-
-    # Filter out null values in specified columns
-    data = data[data["query"].notna() & data["cpu_time_ms"].notna() & data["peak_memory_bytes"].notna()]
-
-    # Remove duplicate rows based on all columns
-    data.drop_duplicates(inplace=True)
-
-    # If you want to remove duplicates only based on the 'query' column, you would use:
-    data.drop_duplicates(subset=["query"], inplace=True)
-
-    # Convert 'query' column to uppercase
-    data["query"] = data["query"].str.upper()
-
-    X = data[["query", "cpu_time_ms"]].values
-    y = data["peak_memory_bytes"].values
-
-    logging.info("Splitting the dataset into train, validation, and test sets...")
-
-    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
-    X_valid, X_test, y_valid, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
-
+    
     def extract_features(query):
         # Preprocess the query
         query_lower = query.lower()
@@ -145,154 +122,230 @@ def train_and_evaluate_model(query):
             features["limit_number"] = 0
 
         return list(features.values())
-
+        
     def manual_interactions(query_features):
-        join_table_interaction = query_features[2] * query_features[8]
-        select_column_interaction = query_features[1] * query_features[9]
-        return join_table_interaction, select_column_interaction
+            join_table_interaction = query_features[2] * query_features[8]
+            select_column_interaction = query_features[1] * query_features[9]
+            return join_table_interaction, select_column_interaction
 
-    # Feature Extraction
-    logging.info("Extracting features from training data...")
-    X_train_features = [extract_features(query[0]) for query in X_train]
-    logging.info("Extracting features from validation data...")
-    X_valid_features = [extract_features(query[0]) for query in X_valid]
-    logging.info("Extracting features from test data...")
-    X_test_features = [extract_features(query[0]) for query in X_test]
-
-    # Manual Interaction
-    X_train_interactions = [manual_interactions(features) for features in X_train_features]
-    X_valid_interactions = [manual_interactions(features) for features in X_valid_features]
-    X_test_interactions = [manual_interactions(features) for features in X_test_features]
-
-    # Append interactions to features
-    X_train_final = [
-        features + list(interactions) for features, interactions in zip(X_train_features, X_train_interactions)
-    ]
-    X_valid_final = [
-        features + list(interactions) for features, interactions in zip(X_valid_features, X_valid_interactions)
-    ]
-    X_test_final = [
-        features + list(interactions) for features, interactions in zip(X_test_features, X_test_interactions)
-    ]
-
-    # Convert to numpy arrays
-    X_train_final = np.array(X_train_final)
-    X_valid_final = np.array(X_valid_final)
-    X_test_final = np.array(X_test_final)
-
-    # Polynomial Features
-    logging.info("Generating polynomial features...")
-    poly = PolynomialFeatures(degree=2, include_bias=False, interaction_only=True)
-    X_train_poly = poly.fit_transform(X_train_final)
-    X_valid_poly = poly.transform(X_valid_final)
-    X_test_poly = poly.transform(X_test_final)
-
-    # Scaling
-    logging.info("Scaling features...")
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train_poly)
-    X_valid_scaled = scaler.transform(X_valid_poly)
-    X_test_scaled = scaler.transform(X_test_poly)
-
-    def objective(trial):
-        params = {
-            "verbosity": 0,
-            "n_estimators": 1000,
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
-            "max_depth": trial.suggest_int("max_depth", 3, 10),
-            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
-            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
-            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
-            "gamma": trial.suggest_float("gamma", 0, 0.5),
-        }
-
-        model = xgb.XGBRegressor(**params)
-        model.fit(
-            X_train_scaled,
-            y_train,
-            eval_set=[(X_valid_scaled, y_valid)],
-            early_stopping_rounds=10,
-            verbose=False,
-        )
-        preds = model.predict(X_valid_scaled)
-        rmse = mean_squared_error(y_valid, preds, squared=False)
-        return rmse
-
-    if os.path.exists(DEFAULT_MODEL_FILE):
-        logging.info("Loading existing model...")
+    if use_pretrained and os.path.exists(DEFAULT_MODEL_FILE) and os.path.exists(DEFAULT_SCALER_FILE) and os.path.exists(DEFAULT_POLY_FILE):
+        logging.info("Loading existing model and preprocessing objects...")
         model = xgb.XGBRegressor()
         model.load_model(DEFAULT_MODEL_FILE)
+        with open(DEFAULT_SCALER_FILE, 'rb') as f:
+            scaler = pickle.load(f)
+        with open(DEFAULT_POLY_FILE, 'rb') as f:
+            poly = pickle.load(f)
+            
+        logging.info("Extracting features from the input query...")
+        query_features = extract_features(query)
+        query_interactions = manual_interactions(query_features)
+        query_combined = np.hstack((query_features, query_interactions))
+        query_poly = poly.transform([query_combined])
+        query_scaled = scaler.transform(query_poly)
+        return model.predict(query_scaled)[0]
+
+    elif in_memory_ml_attributes and use_pretrained:
+        logging.info("Loading existing model and preprocessing objects...")
+        model = xgb.XGBRegressor()
+        model.load_model(in_memory_ml_attributes["model"])
+        scaler = in_memory_ml_attributes["scaler"]
+        poly = in_memory_ml_attributes["poly_features"]
+        logging.info("Extracting features from the input query...")
+        query_features = extract_features(query)
+        query_interactions = manual_interactions(query_features)
+        query_combined = np.hstack((query_features, query_interactions))
+        query_poly = poly.transform([query_combined])
+        query_scaled = scaler.transform(query_poly)
+        return model.predict(query_scaled)[0]
     else:
-        logging.info("Tuning hyperparameters with Optuna...")
-        study = optuna.create_study(direction="minimize", pruner=MedianPruner())
-        study.optimize(objective, n_trials=50)
+        logging.info("Loading the dataset...")
+        if IS_LOCAL_RUN:
+            data = pd.read_csv(DEFAULT_OUTPUT_FILE)
+        else:
+            data = transform_result.copy()
+        
+        logging.info(f"Loaded {len(data)} rows of data.")
 
-        logging.info("Training the final model with best hyperparameters...")
-        best_params = study.best_params
-        model = xgb.XGBRegressor(**best_params)
-        model.fit(
-            X_train_scaled,
-            y_train,
-            eval_set=[(X_valid_scaled, y_valid)],
-            early_stopping_rounds=10,
-            verbose=False,
+        # Filter out null values in specified columns
+        data = data[data["query"].notna() & data["cpu_time_ms"].notna() & data["peak_memory_bytes"].notna()]
+
+        # Remove duplicate rows based on all columns
+        data.drop_duplicates(inplace=True)
+
+        # If you want to remove duplicates only based on the 'query' column, you would use:
+        data.drop_duplicates(subset=["query"], inplace=True)
+
+        # Convert 'query' column to uppercase
+        data["query"] = data["query"].str.upper()
+
+        X = data[["query", "cpu_time_ms"]].values
+        y = data["peak_memory_bytes"].values
+
+        logging.info("Splitting the dataset into train, validation, and test sets...")
+
+        X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
+        X_valid, X_test, y_valid, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+
+        # Feature Extraction
+        logging.info("Extracting features from training data...")
+        X_train_features = [extract_features(query[0]) for query in X_train]
+        logging.info("Extracting features from validation data...")
+        X_valid_features = [extract_features(query[0]) for query in X_valid]
+        logging.info("Extracting features from test data...")
+        X_test_features = [extract_features(query[0]) for query in X_test]
+
+        # Manual Interaction
+        X_train_interactions = [manual_interactions(features) for features in X_train_features]
+        X_valid_interactions = [manual_interactions(features) for features in X_valid_features]
+        X_test_interactions = [manual_interactions(features) for features in X_test_features]
+
+        # Append interactions to features
+        X_train_final = [
+            features + list(interactions) for features, interactions in zip(X_train_features, X_train_interactions)
+        ]
+        X_valid_final = [
+            features + list(interactions) for features, interactions in zip(X_valid_features, X_valid_interactions)
+        ]
+        X_test_final = [
+            features + list(interactions) for features, interactions in zip(X_test_features, X_test_interactions)
+        ]
+
+        # Convert to numpy arrays
+        X_train_final = np.array(X_train_final)
+        X_valid_final = np.array(X_valid_final)
+        X_test_final = np.array(X_test_final)
+
+        # Polynomial Features
+        logging.info("Generating polynomial features...")
+        poly = PolynomialFeatures(degree=2, include_bias=False, interaction_only=True)
+        X_train_poly = poly.fit_transform(X_train_final)
+        X_valid_poly = poly.transform(X_valid_final)
+        X_test_poly = poly.transform(X_test_final)
+
+        # Scaling
+        logging.info("Scaling features...")
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train_poly)
+        X_valid_scaled = scaler.transform(X_valid_poly)
+        X_test_scaled = scaler.transform(X_test_poly)
+
+        def objective(trial):
+            params = {
+                "verbosity": 0,
+                "n_estimators": 1000,
+                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3),
+                "max_depth": trial.suggest_int("max_depth", 3, 10),
+                "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+                "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+                "gamma": trial.suggest_float("gamma", 0, 0.5),
+            }
+
+            model = xgb.XGBRegressor(**params)
+            model.fit(
+                X_train_scaled,
+                y_train,
+                eval_set=[(X_valid_scaled, y_valid)],
+                early_stopping_rounds=10,
+                verbose=False,
+            )
+            preds = model.predict(X_valid_scaled)
+            rmse = mean_squared_error(y_valid, preds, squared=False)
+            return rmse
+
+        if not use_pretrained:
+            logging.info("Tuning hyperparameters with Optuna...")
+            study = optuna.create_study(direction="minimize", pruner=MedianPruner())
+            study.optimize(objective, n_trials=50)
+
+            logging.info("Training the final model with best hyperparameters...")
+            best_params = study.best_params
+            model = xgb.XGBRegressor(**best_params)
+            model.fit(
+                X_train_scaled,
+                y_train,
+                eval_set=[(X_valid_scaled, y_valid)],
+                early_stopping_rounds=10,
+                verbose=False,
+            )
+            
+            if save_ml_attributes_in_memory:
+                st.session_state.model = model
+                st.session_state.scaler = scaler
+                st.session_state.poly_features = poly
+            else:
+                model.save_model(DEFAULT_MODEL_FILE)
+
+                # Save the scaler and polynomial feature generator
+                with open(DEFAULT_SCALER_FILE, 'wb') as f:
+                    pickle.dump(scaler, f)
+                with open(DEFAULT_POLY_FILE, 'wb') as f:
+                    pickle.dump(poly, f)
+            st.session_state.made_ml_training = True
+        else:
+            raise ValueError("Please use use_pretrained parameter...")
+
+        logging.info("Evaluating the model on the test set...")
+        y_pred = model.predict(X_test_scaled)
+
+        def calculate_metrics(y_true, y_pred):
+            mse = mean_squared_error(y_true, y_pred)
+            mae = mean_absolute_error(y_true, y_pred)
+            r2 = r2_score(y_true, y_pred)
+            return mse, mae, r2
+
+        mse, mae, r2 = calculate_metrics(y_test, y_pred)
+        logging.info(f"Test MSE: {mse:.2f}")
+        logging.info(f"Test MAE: {mae:.2f}")
+        logging.info(f"Test R2: {r2:.2f}")
+
+        logging.info("Extracting features from the provided query...")
+        query_features = extract_features(query)
+        query_interactions = manual_interactions(query_features)
+        query_final = np.array(query_features + list(query_interactions)).reshape(1, -1)
+        query_poly = poly.transform(query_final)
+        query_scaled = scaler.transform(query_poly)
+        query_pred = model.predict(query_scaled)[0]
+
+        # Calculate the lower and upper bound for the prediction using MAE
+        lower_bound = query_pred - mae
+        upper_bound = query_pred + mae
+
+        logging.info(f"Final prediction: {query_pred} bytes")
+        logging.info(f"Prediction range: {lower_bound} bytes to {upper_bound} bytes")
+        logging.info(f"Evaluation Metrics - MSE: {mse}, MAE: {mae}, R^2: {r2}")
+
+        print(f"Predicted memory for new query: {query_pred:.2f} bytes ({query_pred / BYTES_IN_ONE_GB:.2f} GB)")
+        print(
+            f"Prediction range: {lower_bound:.2f} bytes ({lower_bound / BYTES_IN_ONE_GB:.2f} GB) "
+            f"to {upper_bound:.2f} bytes ({upper_bound / BYTES_IN_ONE_GB:.2f} GB)"
         )
-        model.save_model(DEFAULT_MODEL_FILE)
+        print(f"Mean squared error (MSE): {mse}")
+        print(f"Mean absolute error (MAE): {mae}")
+        print(f"R-squared (R^2): {r2}")
 
-    logging.info("Evaluating the model on the test set...")
-    y_pred = model.predict(X_test_scaled)
+        result = {}
 
-    def calculate_metrics(y_true, y_pred):
-        mse = mean_squared_error(y_true, y_pred)
-        mae = mean_absolute_error(y_true, y_pred)
-        r2 = r2_score(y_true, y_pred)
-        return mse, mae, r2
+        # Saving the model
+        result["predicted_memory"] = query_pred
+        result["lower_bound"] = lower_bound
+        result["upper_bound"] = upper_bound
+        result["mse"] = mse
+        result["mae"] = mae
+        result["r2"] = r2
 
-    mse, mae, r2 = calculate_metrics(y_test, y_pred)
-    logging.info(f"Test MSE: {mse:.2f}")
-    logging.info(f"Test MAE: {mae:.2f}")
-    logging.info(f"Test R2: {r2:.2f}")
-
-    logging.info("Extracting features from the provided query...")
-    query_features = extract_features(query)
-    query_interactions = manual_interactions(query_features)
-    query_final = np.array(query_features + list(query_interactions)).reshape(1, -1)
-    query_poly = poly.transform(query_final)
-    query_scaled = scaler.transform(query_poly)
-    query_pred = model.predict(query_scaled)[0]
-
-    # Calculate the lower and upper bound for the prediction using MAE
-    lower_bound = query_pred - mae
-    upper_bound = query_pred + mae
-
-    logging.info(f"Final prediction: {query_pred} bytes")
-    logging.info(f"Prediction range: {lower_bound} bytes to {upper_bound} bytes")
-    logging.info(f"Evaluation Metrics - MSE: {mse}, MAE: {mae}, R^2: {r2}")
-
-    print(f"Predicted memory for new query: {query_pred:.2f} bytes ({query_pred / BYTES_IN_ONE_GB:.2f} GB)")
-    print(
-        f"Prediction range: {lower_bound:.2f} bytes ({lower_bound / BYTES_IN_ONE_GB:.2f} GB) "
-        f"to {upper_bound:.2f} bytes ({upper_bound / BYTES_IN_ONE_GB:.2f} GB)"
-    )
-    print(f"Mean squared error (MSE): {mse}")
-    print(f"Mean absolute error (MAE): {mae}")
-    print(f"R-squared (R^2): {r2}")
-
-    result = {}
-
-    # Saving the model
-    result["predicted_memory"] = query_pred
-    result["lower_bound"] = lower_bound
-    result["upper_bound"] = upper_bound
-    result["mse"] = mse
-    result["mae"] = mae
-    result["r2"] = r2
-
-    return result
+        return result
 
 
-def main(query):
-    return train_and_evaluate_model(query)
+def main(query, use_pretrained, transform_result, in_memory_ml_attributes, save_ml_attributes_in_memory):
+    return train_and_evaluate_model(
+        query=query,
+        transform_result=transform_result,
+        in_memory_ml_attributes=in_memory_ml_attributes,
+        use_pretrained=use_pretrained,
+        save_ml_attributes_in_memory=save_ml_attributes_in_memory
+        )
 
 
 if __name__ == "__main__":

@@ -1,17 +1,16 @@
 import os
-import platform
 import shutil
 import subprocess
-from functools import wraps
 import time
 import sys
 
+import numpy as np
 import pandas as pd
 import streamlit as st
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 from src.app import parse_athena_executions, prediction, transform_query_logs
-from src.utils.config import DEFAULT_DIR_RAW_DATA, DEFAULT_OUTPUT_FILE, update_session
+from src.utils.config import DEFAULT_DIR_RAW_DATA, DEFAULT_MODEL_FILE, DEFAULT_OUTPUT_FILE, IS_LOCAL_RUN, update_session
 
 
 def clean_pycache():
@@ -78,42 +77,79 @@ def clean_up_resources():
     clean_docker_resources()
 
 
-def check_file_exists(file_path):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            if os.path.exists(file_path):
-                return func(*args, **kwargs)
+@st.experimental_dialog("Please input the query string", width="large")
+def run_prediction(use_pretrained=False, transform_result=None, in_memory_ml_attributes={}, save_ml_attributes_in_memory=False):
+    with st.form("query-input"):
+        query_string = st.text_input(
+            label="Write down Athena query to predict its scan size",
+            placeholder="SELECT colums FROM tablename LIMIT 10",
+        )
+        submit = st.form_submit_button(label="Submit", use_container_width=True)
+    if submit:
+        if not query_string:
+            st.warning("Please provide a query string")
+            st.stop()
+        st.info(f"Prediction for the query: {query_string[:40]}... has been started")
+        with st.spinner("Operation in progress. Please wait..."):
+            results = prediction.main(query_string, use_pretrained, transform_result, in_memory_ml_attributes, save_ml_attributes_in_memory)
+            if isinstance(results, dict):
+                prediction_data = {
+                    "Metric": [
+                        "Predicted Memory",
+                        "Lower Bound",
+                        "Upper Bound",
+                        "Mean Squared Error (MSE)",
+                        "Mean Absolute Error (MAE)",
+                        "R-squared (R^2)",
+                    ],
+                    "Value": [
+                        f"{results['predicted_memory']:.2f} bytes ({results['predicted_memory'] / 1_073_741_824:.2f} GB)",
+                        f"{results['lower_bound']:.2f} bytes ({results['lower_bound'] / 1_073_741_824:.2f} GB)",
+                        f"{results['upper_bound']:.2f} bytes ({results['upper_bound'] / 1_073_741_824:.2f} GB)",
+                        results["mse"],
+                        results["mae"],
+                        results["r2"],
+                    ],
+                }
+                st.success("**Here are prediction results!**", icon="🔥")
+                st.write("### Prediction Results")
+                st.table(prediction_data)
+            elif isinstance(results, np.float32) or isinstance(results, float):
+                try:
+                    predicted_memory = results
+                    formatted_memory = f"{predicted_memory:.2f} bytes ({predicted_memory / 1_073_741_824:.2f} GB)"
+                    
+                    prediction_data = {
+                        "Metric": ["Predicted Memory"],
+                        "Value": [formatted_memory],
+                    }
+                    
+                    st.success("**Here are prediction results!**", icon="🔥")
+                    st.write("### Prediction Results")
+                    st.table(prediction_data)
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
             else:
-                st.warning("File not found, please parse logs first :)", icon="⚠️")
-
-        return wrapper
-
-    return decorator
+                st.error("Unexpected result type. Expected numpy.float32 or float.")
 
 
-def check_directory_empty(directory_path):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            if any(file for file in os.listdir(directory_path) if file != ".gitkeep"):
-                return func(*args, **kwargs)
-            else:
-                st.warning("No files found in the directory, please parse logs first :)", icon="⚠️")
-
-        return wrapper
-
-    return decorator
-
-
-@check_directory_empty(DEFAULT_DIR_RAW_DATA)
 def transform():
     with st.spinner("Operation in progress. Please wait..."):
-        st.success("All transformations have been applied!")
-        st.write("## Result Dataframe")
-        transform_query_logs.main()
-        df = pd.read_csv(DEFAULT_OUTPUT_FILE)
-        st.dataframe(df)
+        if IS_LOCAL_RUN and any(file for file in os.listdir(DEFAULT_DIR_RAW_DATA) if file != ".gitkeep"):
+            st.success("All transformations have been applied!")
+            st.write("## Result Dataframe")
+            result = transform_query_logs.main()
+            df = pd.read_csv(DEFAULT_OUTPUT_FILE)
+            st.dataframe(df)
+        elif not IS_LOCAL_RUN and st.session_state.query_log_result:
+            st.success("All transformations have been applied!")
+            st.write("## Result Dataframe")
+            result = transform_query_logs.main(query_log_result=st.session_state.query_log_result)
+            st.session_state.transform_result = result.copy()
+            st.dataframe(result)
+        else:
+            st.warning("No files found in the directory, please parse logs first :)")
+        
 
 
 @st.experimental_dialog("Clean Up Resources")
@@ -148,7 +184,7 @@ def clean_resources():
     clean_processed_data_checkbox = st.checkbox("Clean Processed Data", value=st.session_state.clean_processed_data)
     clean_raw_data_checkbox = st.checkbox("Clean Raw Data", value=st.session_state.clean_raw_data)
     clean_docker_resources_checkbox = None
-    if platform.processor() and "clean_docker_resources" in st.session_state:
+    if IS_LOCAL_RUN and "clean_docker_resources" in st.session_state:
         clean_docker_resources_checkbox = st.checkbox(
             "Clean Docker Resources", value=st.session_state.clean_docker_resources
         )
@@ -243,40 +279,25 @@ def change_state():
     st.session_state.state = True
 
 
-@check_file_exists(DEFAULT_OUTPUT_FILE)
-@st.experimental_dialog("Please input the query string", width="large")
-def run_prediction():
-    with st.form("query-input"):
-        query_string = st.text_input(
-            label="Write down Athena query to predict its scan size",
-            placeholder="SELECT colums FROM tablename LIMIT 10",
-        )
-        submit = st.form_submit_button(label="Submit", use_container_width=True)
-    if submit:
-        if not query_string:
-            st.warning("Please provide a query string")
-            st.stop()
-        st.info(f"Prediction for the query: {query_string[:40]}... has been started")
-        with st.spinner("Operation in progress. Please wait..."):
-            results = prediction.main(query_string)
-            prediction_data = {
-                "Metric": [
-                    "Predicted Memory",
-                    "Lower Bound",
-                    "Upper Bound",
-                    "Mean Squared Error (MSE)",
-                    "Mean Absolute Error (MAE)",
-                    "R-squared (R^2)",
-                ],
-                "Value": [
-                    f"{results['predicted_memory']:.2f} bytes ({results['predicted_memory'] / 1_073_741_824:.2f} GB)",
-                    f"{results['lower_bound']:.2f} bytes ({results['lower_bound'] / 1_073_741_824:.2f} GB)",
-                    f"{results['upper_bound']:.2f} bytes ({results['upper_bound'] / 1_073_741_824:.2f} GB)",
-                    results["mse"],
-                    results["mae"],
-                    results["r2"],
-                ],
-            }
-            st.success("**Here are prediction results!**", icon="🔥")
-            st.write("### Prediction Results")
-            st.table(prediction_data)
+def run_prediction_dialog(use_pretrained, save_ml_attributes_in_memory=False):
+    if use_pretrained and os.path.exists(DEFAULT_MODEL_FILE):
+        run_prediction(use_pretrained=use_pretrained)
+    elif use_pretrained and not os.path.exists(DEFAULT_MODEL_FILE):
+        st.warning("ML model not found, please train yours")
+    elif not use_pretrained and IS_LOCAL_RUN and os.path.exists(DEFAULT_OUTPUT_FILE):
+        run_prediction()
+    elif not use_pretrained and not IS_LOCAL_RUN and not st.session_state.transform_result.empty:
+        run_prediction(transform_result=st.session_state.transform_result, save_ml_attributes_in_memory=save_ml_attributes_in_memory)
+    elif use_pretrained and not IS_LOCAL_RUN and not st.session_state.transform_result.empty:
+        run_prediction(
+            use_pretrained=use_pretrained,
+            transform_result=st.session_state.transform_result,
+            in_memory_ml_attributes={
+                'model': st.session_state.model,
+                'poly_features': st.session_state.poly_features,
+                'scaler': st.session_state.scaler
+                }
+            )
+    else:
+        st.warning("You can't work with the model, please parse logs first :)")
+    

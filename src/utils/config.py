@@ -1,5 +1,6 @@
 import os
 import logging
+import platform
 import boto3
 
 # Set up logging
@@ -10,8 +11,11 @@ logger = logging.getLogger()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DIR_RAW_DATA = os.path.join(SCRIPT_DIR, "../../data/raw")
 DEFAULT_OUTPUT_FILE = os.path.join(SCRIPT_DIR, "../../data/processed/processed_data.csv")
-DEFAULT_MODEL_FILE = os.path.join(SCRIPT_DIR, "../../src/model/model.h5")
+DEFAULT_SCALER_FILE = os.path.join(SCRIPT_DIR, "../../src/model/scaler.pkl")
+DEFAULT_POLY_FILE = os.path.join(SCRIPT_DIR, "../../src/model/poly_features.pkl")
+DEFAULT_MODEL_FILE = os.path.join(SCRIPT_DIR, "../../src/model/model.json")
 DEFAULT_REGION_NAME = "us-east-1"
+IS_LOCAL_RUN = False if platform.processor() else False
 
 
 def update_session(aws_access_key_id, aws_secret_access_key, aws_session_token, aws_default_region):
