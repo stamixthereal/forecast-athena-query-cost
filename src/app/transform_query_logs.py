@@ -9,6 +9,7 @@ import pandas as pd
 
 from src.utils.config import DEFAULT_OUTPUT_FILE, DEFAULT_DIR_RAW_DATA, IS_LOCAL_RUN, logger
 
+
 def clean_query(query: str) -> str:
     """Clean the query by removing excessive white spaces."""
     return re.sub(r"\s+", " ", query.strip())
@@ -73,6 +74,7 @@ def write_row_to_csv(file_path: str, row: List):
         csv_writer = csv.writer(f)
         csv_writer.writerow(row)
 
+
 def process_query_logs(input_dir: str, output_file: str, query_log_result):
     """Process query logs from input directory and write to output CSV file."""
     logger.info(f"Starting the processing of query logs from directory: {input_dir}.")
@@ -102,18 +104,19 @@ def process_query_logs(input_dir: str, output_file: str, query_log_result):
 
             if count % (total_files // 20) == 0:  # Log every 5%
                 logger.info(f"Processed {count}/{total_files} files ({(count/total_files)*100:.2f}%).")
-                
+
         logger.info(f"Processing completed. Data written to {output_file}.")
-        return 
+        return
     else:
         rows = []
-        for (file_path, query_log) in enumerate(query_log_result.items()):
+        for file_path, query_log in enumerate(query_log_result.items()):
             row = process_file_in_memory(query_log[1])
             if row:
                 rows.append(row)
         result_df = pd.DataFrame(rows, columns=column_names)
         logger.info("Data has been processed in memory")
         return result_df
+
 
 def main(query_log_result=None):
     return process_query_logs(DEFAULT_DIR_RAW_DATA, DEFAULT_OUTPUT_FILE, query_log_result=query_log_result)

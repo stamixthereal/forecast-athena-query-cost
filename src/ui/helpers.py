@@ -78,7 +78,9 @@ def clean_up_resources():
 
 
 @st.experimental_dialog("Please input the query string", width="large")
-def run_prediction(use_pretrained=False, transform_result=None, in_memory_ml_attributes={}, save_ml_attributes_in_memory=False):
+def run_prediction(
+    use_pretrained=False, transform_result=None, in_memory_ml_attributes={}, save_ml_attributes_in_memory=False
+):
     with st.form("query-input"):
         query_string = st.text_input(
             label="Write down Athena query to predict its scan size",
@@ -91,7 +93,9 @@ def run_prediction(use_pretrained=False, transform_result=None, in_memory_ml_att
             st.stop()
         st.info(f"Prediction for the query: {query_string[:40]}... has been started")
         with st.spinner("Operation in progress. Please wait..."):
-            results = prediction.main(query_string, use_pretrained, transform_result, in_memory_ml_attributes, save_ml_attributes_in_memory)
+            results = prediction.main(
+                query_string, use_pretrained, transform_result, in_memory_ml_attributes, save_ml_attributes_in_memory
+            )
             if isinstance(results, dict):
                 prediction_data = {
                     "Metric": [
@@ -118,12 +122,12 @@ def run_prediction(use_pretrained=False, transform_result=None, in_memory_ml_att
                 try:
                     predicted_memory = results
                     formatted_memory = f"{predicted_memory:.2f} bytes ({predicted_memory / 1_073_741_824:.2f} GB)"
-                    
+
                     prediction_data = {
                         "Metric": ["Predicted Memory"],
                         "Value": [formatted_memory],
                     }
-                    
+
                     st.success("**Here are prediction results!**", icon="🔥")
                     st.write("### Prediction Results")
                     st.table(prediction_data)
@@ -149,7 +153,6 @@ def transform():
             st.dataframe(result)
         else:
             st.warning("No files found in the directory, please parse logs first :)")
-        
 
 
 @st.experimental_dialog("Clean Up Resources")
@@ -287,17 +290,19 @@ def run_prediction_dialog(use_pretrained, save_ml_attributes_in_memory=False):
     elif not use_pretrained and IS_LOCAL_RUN and os.path.exists(DEFAULT_OUTPUT_FILE):
         run_prediction()
     elif not use_pretrained and not IS_LOCAL_RUN and not st.session_state.transform_result.empty:
-        run_prediction(transform_result=st.session_state.transform_result, save_ml_attributes_in_memory=save_ml_attributes_in_memory)
+        run_prediction(
+            transform_result=st.session_state.transform_result,
+            save_ml_attributes_in_memory=save_ml_attributes_in_memory,
+        )
     elif use_pretrained and not IS_LOCAL_RUN and not st.session_state.transform_result.empty:
         run_prediction(
             use_pretrained=use_pretrained,
             transform_result=st.session_state.transform_result,
             in_memory_ml_attributes={
-                'model': st.session_state.model,
-                'poly_features': st.session_state.poly_features,
-                'scaler': st.session_state.scaler
-                }
-            )
+                "model": st.session_state.model,
+                "poly_features": st.session_state.poly_features,
+                "scaler": st.session_state.scaler,
+            },
+        )
     else:
         st.warning("You can't work with the model, please parse logs first :)")
-    

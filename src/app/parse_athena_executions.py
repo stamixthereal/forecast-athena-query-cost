@@ -62,7 +62,6 @@ class QueryLogDownloader:
                 except Exception as e:
                     logger.error(f"ERROR WITH {e}")
 
-
     def _download_query_logs_for_workgroup(self, workgroup_name: str, output_dir: str = None) -> None:
         """
         Download query logs for a specific workgroup.
@@ -90,7 +89,7 @@ class QueryLogManager:
         self.workgroup_name = workgroup_name
         self.session = session
         self.athena = session.client("athena")
-    
+
     def download_query_logs(self) -> None:
         """
         Download query logs for a specific workgroup.

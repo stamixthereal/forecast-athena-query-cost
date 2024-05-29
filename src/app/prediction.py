@@ -14,16 +14,24 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, PolynomialFeatures
 
-from src.utils.config import DEFAULT_OUTPUT_FILE, DEFAULT_MODEL_FILE, DEFAULT_SCALER_FILE, DEFAULT_POLY_FILE, IS_LOCAL_RUN
+from src.utils.config import (
+    DEFAULT_OUTPUT_FILE,
+    DEFAULT_MODEL_FILE,
+    DEFAULT_SCALER_FILE,
+    DEFAULT_POLY_FILE,
+    IS_LOCAL_RUN,
+)
 
 
-def train_and_evaluate_model(query, transform_result, use_pretrained, in_memory_ml_attributes, save_ml_attributes_in_memory):
+def train_and_evaluate_model(
+    query, transform_result, use_pretrained, in_memory_ml_attributes, save_ml_attributes_in_memory
+):
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 
     warnings.filterwarnings("ignore")
 
     BYTES_IN_ONE_GB = 1_073_741_824  # 2^30
-    
+
     def extract_features(query):
         # Preprocess the query
         query_lower = query.lower()
@@ -122,21 +130,26 @@ def train_and_evaluate_model(query, transform_result, use_pretrained, in_memory_
             features["limit_number"] = 0
 
         return list(features.values())
-        
-    def manual_interactions(query_features):
-            join_table_interaction = query_features[2] * query_features[8]
-            select_column_interaction = query_features[1] * query_features[9]
-            return join_table_interaction, select_column_interaction
 
-    if use_pretrained and os.path.exists(DEFAULT_MODEL_FILE) and os.path.exists(DEFAULT_SCALER_FILE) and os.path.exists(DEFAULT_POLY_FILE):
+    def manual_interactions(query_features):
+        join_table_interaction = query_features[2] * query_features[8]
+        select_column_interaction = query_features[1] * query_features[9]
+        return join_table_interaction, select_column_interaction
+
+    if (
+        use_pretrained
+        and os.path.exists(DEFAULT_MODEL_FILE)
+        and os.path.exists(DEFAULT_SCALER_FILE)
+        and os.path.exists(DEFAULT_POLY_FILE)
+    ):
         logging.info("Loading existing model and preprocessing objects...")
         model = xgb.XGBRegressor()
         model.load_model(DEFAULT_MODEL_FILE)
-        with open(DEFAULT_SCALER_FILE, 'rb') as f:
+        with open(DEFAULT_SCALER_FILE, "rb") as f:
             scaler = pickle.load(f)
-        with open(DEFAULT_POLY_FILE, 'rb') as f:
+        with open(DEFAULT_POLY_FILE, "rb") as f:
             poly = pickle.load(f)
-            
+
         logging.info("Extracting features from the input query...")
         query_features = extract_features(query)
         query_interactions = manual_interactions(query_features)
@@ -164,7 +177,7 @@ def train_and_evaluate_model(query, transform_result, use_pretrained, in_memory_
             data = pd.read_csv(DEFAULT_OUTPUT_FILE)
         else:
             data = transform_result.copy()
-        
+
         logging.info(f"Loaded {len(data)} rows of data.")
 
         # Filter out null values in specified columns
@@ -269,7 +282,7 @@ def train_and_evaluate_model(query, transform_result, use_pretrained, in_memory_
                 early_stopping_rounds=10,
                 verbose=False,
             )
-            
+
             if save_ml_attributes_in_memory:
                 st.session_state.model = model
                 st.session_state.scaler = scaler
@@ -278,9 +291,9 @@ def train_and_evaluate_model(query, transform_result, use_pretrained, in_memory_
                 model.save_model(DEFAULT_MODEL_FILE)
 
                 # Save the scaler and polynomial feature generator
-                with open(DEFAULT_SCALER_FILE, 'wb') as f:
+                with open(DEFAULT_SCALER_FILE, "wb") as f:
                     pickle.dump(scaler, f)
-                with open(DEFAULT_POLY_FILE, 'wb') as f:
+                with open(DEFAULT_POLY_FILE, "wb") as f:
                     pickle.dump(poly, f)
             st.session_state.made_ml_training = True
         else:
@@ -344,8 +357,8 @@ def main(query, use_pretrained, transform_result, in_memory_ml_attributes, save_
         transform_result=transform_result,
         in_memory_ml_attributes=in_memory_ml_attributes,
         use_pretrained=use_pretrained,
-        save_ml_attributes_in_memory=save_ml_attributes_in_memory
-        )
+        save_ml_attributes_in_memory=save_ml_attributes_in_memory,
+    )
 
 
 if __name__ == "__main__":
