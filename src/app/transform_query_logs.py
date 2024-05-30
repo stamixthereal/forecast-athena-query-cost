@@ -3,7 +3,7 @@ import glob
 import json
 import os
 import re
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -45,17 +45,11 @@ def process_file(file_path: str) -> Optional[List]:
     """Process a single JSON file and return its CSV row representation."""
     with open(file_path, "r") as f:
         data = json.load(f)
-        if not data:
-            logger.warning(f"No data found in {file_path}. Skipping.")
-            return None
         return get_csv_row(data)
 
 
-def process_file_in_memory(query_log: dict) -> Optional[List]:
+def process_file_in_memory(query_log: Dict[str, Any]) -> Optional[List]:
     """Process a single JSON file from in-memory data and return its CSV row representation."""
-    if not query_log:
-        logger.warning("No data found. Skipping.")
-        return None
     return get_csv_row(query_log)
 
 
@@ -91,8 +85,6 @@ def process_query_logs(input_dir: str, output_file: str, query_log_result):
     ]
     if IS_LOCAL_RUN:
         initialize_csv(output_file, column_names)
-
-    if IS_LOCAL_RUN:
         json_files = glob.glob(os.path.join(input_dir, "*.json"))
         total_files = len(json_files)
         logger.info(f"Found {total_files} JSON files for processing.")
@@ -101,18 +93,12 @@ def process_query_logs(input_dir: str, output_file: str, query_log_result):
             row = process_file(json_file)
             if row:
                 write_row_to_csv(output_file, row)
-
             if count % (total_files // 20) == 0:  # Log every 5%
                 logger.info(f"Processed {count}/{total_files} files ({(count/total_files)*100:.2f}%).")
 
         logger.info(f"Processing completed. Data written to {output_file}.")
-        return
     else:
-        rows = []
-        for query_log in query_log_result.values():
-            row = process_file_in_memory(query_log)
-            if row:
-                rows.append(row)
+        rows = [process_file_in_memory(query_log) for query_log in query_log_result.values() if query_log]
         result_df = pd.DataFrame(rows, columns=column_names)
         logger.info("Data has been processed in memory.")
         return result_df
