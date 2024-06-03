@@ -12,7 +12,7 @@ This project comprises a suite of Python scripts designed to analyze SQL query l
 
 Follow these steps to set up the project and start using it:
 
-### 0. (Optional) Set Up the Virtual Environment and Install Dependencies 
+### 0. (Optional) Set Up the Virtual Environment and Install Dependencies
 
 ```bash
 make local-venv-setup
