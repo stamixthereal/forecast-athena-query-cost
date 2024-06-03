@@ -3,9 +3,6 @@ Apache License
 Version 2.0, January 2004
 http://www.apache.org/licenses/
 
-This script/module provides functions for cleaning up various resources and
-running predictions on query sizes using ML models trained on AWS Athena query logs.
-
 Copyright [2024] [Stanislav Kazanov]
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
