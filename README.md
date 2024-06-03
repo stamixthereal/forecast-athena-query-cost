@@ -11,3 +11,7 @@ This project comprises a suite of Python scripts designed to analyze SQL query l
 ### New Architecture Diagram
 
 ![new-architecture](images/new-architecture.png)
+
+## License
+
+[Apache License 2.0](LICENSE)
