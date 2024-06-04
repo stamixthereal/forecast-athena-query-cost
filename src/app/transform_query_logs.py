@@ -45,10 +45,6 @@ def get_csv_row(data: dict) -> Optional[List]:
         return None
 
     query_id = data["QueryExecutionId"]
-    user = "random_user"  # Placeholder
-    source = data["WorkGroup"]
-    environment = data["QueryExecutionContext"]["Database"]
-    catalog = environment
     query = clean_query(data["Query"])
     statistics = data.get("Statistics", {})
     peak_memory_bytes = statistics.get("DataScannedInBytes", 0)
@@ -57,7 +53,7 @@ def get_csv_row(data: dict) -> Optional[List]:
     if peak_memory_bytes == 0:
         return None
 
-    return [query_id, user, source, environment, catalog, query, peak_memory_bytes, cpu_time_ms]
+    return [query_id, query, peak_memory_bytes, cpu_time_ms]
 
 
 def process_file(file_path: str) -> Optional[List]:
@@ -94,10 +90,6 @@ def process_query_logs(input_dir: str, output_file: str, query_log_result):
 
     column_names = [
         "query_id",
-        "user_",
-        "source",
-        "environment",
-        "catalog",
         "query",
         "peak_memory_bytes",
         "cpu_time_ms",
