@@ -66,7 +66,7 @@ threadpoolctl==3.5.0
 toml==0.10.2
 toolz==0.12.1
 tornado==6.4
-docker=7.1.0
+docker==7.1.0
 tqdm==4.66.4
 typing_extensions==4.12.0
 tzdata==2024.1

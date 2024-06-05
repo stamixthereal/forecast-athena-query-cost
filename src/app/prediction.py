@@ -51,8 +51,6 @@ def train_and_evaluate_model(
 
     warnings.filterwarnings("ignore")
 
-    BYTES_IN_ONE_GB = 1_073_741_824  # 2^30
-
     def extract_features(query):
         # Preprocess the query
         query_lower = query.lower()
