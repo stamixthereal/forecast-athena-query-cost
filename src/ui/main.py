@@ -1,28 +1,25 @@
-"""
-Apache License
-Version 2.0, January 2004
-http://www.apache.org/licenses/
+# Apache License
+# Version 2.0, January 2004
+# http://www.apache.org/licenses/
 
-Copyright [2024] [Stanislav Kazanov]
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+# Copyright [2024] [Stanislav Kazanov]
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import pandas as pd
 import streamlit as st
-
 from helpers import clean_resources, run_parsing_process, run_prediction_dialog, set_aws_credentials, transform
-from src.utils.config import IS_LOCAL_RUN
 
+from src.utils.config import IS_LOCAL_RUN
 
 if "made_ml_training" not in st.session_state:
     st.session_state.made_ml_training = False
@@ -42,17 +39,35 @@ if "poly_features" not in st.session_state:
 if "scaler" not in st.session_state:
     st.session_state.scaler = None
 
+if "state" not in st.session_state:
+    st.session_state.state = False
 
-# Streamlit application title
+if "aws_credentials" not in st.session_state:
+    st.session_state.aws_credentials = None
+
+if "clean_pycache" not in st.session_state:
+    st.session_state.clean_pycache = False
+
+if "clean_processed_data" not in st.session_state:
+    st.session_state.clean_processed_data = False
+
+if "clean_raw_data" not in st.session_state:
+    st.session_state.clean_raw_data = False
+
+if "clean_ml_model" not in st.session_state:
+    st.session_state.clean_ml_model = False
+
+if "clean_docker_resources" not in st.session_state:
+    st.session_state.clean_docker_resources = False
+
+
 st.title("Forecast AWS Athena Query Application")
 
 st.write("### Choose the model for prediction")
 
 
-# Model choice
 model_choice = st.radio("## Choose Your Model:", ("Pretrained Model", "Train Your Own Model"))
 
-# Based on model choice, perform appropriate actions
 if model_choice == "Pretrained Model":
     st.write("### Choose an action")
     prediction_button = st.button("Make Prediction", use_container_width=True)
@@ -77,25 +92,21 @@ elif model_choice == "Train Your Own Model":
             prediction_button = st.button("Make Prediction (Trained on your data)", use_container_width=True)
         else:
             prediction_button_disabled = st.button(
-                "Make Prediction (Trained on your data)", use_container_width=True, disabled=True
+                "Make Prediction (Trained on your data)",
+                use_container_width=True,
+                disabled=True,
             )
+    elif st.session_state.made_ml_training:
+        prediction_button = st.button("Make Prediction (Trained on your data)", use_container_width=True)
     else:
-        if st.session_state.made_ml_training:
-            prediction_button = st.button("Make Prediction (Trained on your data)", use_container_width=True)
-        else:
-            prediction_button_disabled = st.button(
-                "Make Prediction (Trained on your data)", use_container_width=True, disabled=True
-            )
+        prediction_button_disabled = st.button(
+            "Make Prediction (Trained on your data)",
+            use_container_width=True,
+            disabled=True,
+        )
 
     clean_button = st.button("Clear All Local Cache", type="primary", use_container_width=True)
 
-    # Initialize session state
-    if "state" not in st.session_state:
-        st.session_state.state = False
-    if "aws_credentials" not in st.session_state:
-        st.session_state.aws_credentials = None
-
-    # Handle button clicks
     if process_button:
         if st.session_state.aws_credentials:
             run_parsing_process(st.session_state.aws_credentials)
@@ -117,7 +128,6 @@ elif model_choice == "Train Your Own Model":
     elif clean_button:
         clean_resources()
 
-    # Show a toast message when logs are parsed
     if st.session_state.state:
         st.toast("**Logs have been parsed!**", icon="🎯")
         st.session_state.state = False

@@ -1,49 +1,51 @@
-"""
-Apache License
-Version 2.0, January 2004
-http://www.apache.org/licenses/
+# Apache License
+# Version 2.0, January 2004
+# http://www.apache.org/licenses/
 
-Copyright [2024] [Stanislav Kazanov]
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+# Copyright [2024] [Stanislav Kazanov]
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import logging
 import os
 import pickle
 import re
 import warnings
-import streamlit as st
 
 import numpy as np
 import optuna
 import pandas as pd
+import streamlit as st
 import xgboost as xgb
 from optuna.pruners import MedianPruner
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
 from src.utils.config import (
-    DEFAULT_OUTPUT_FILE,
     DEFAULT_MODEL_FILE,
-    DEFAULT_SCALER_FILE,
+    DEFAULT_OUTPUT_FILE,
     DEFAULT_POLY_FILE,
+    DEFAULT_SCALER_FILE,
     IS_LOCAL_RUN,
 )
 
 
 def train_and_evaluate_model(
-    query, transform_result, use_pretrained, in_memory_ml_attributes, save_ml_attributes_in_memory
+    query,
+    transform_result,
+    use_pretrained,
+    in_memory_ml_attributes,
+    save_ml_attributes_in_memory,
 ):
     logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s")
 
@@ -86,7 +88,7 @@ def train_and_evaluate_model(
             "union_usage": count_occurrences("union"),
             "case_statements": count_occurrences("case when"),
             "nested_case_depth": max(
-                [q.count("case when") for q in re.findall(r"case when(.*?)end", query, re.IGNORECASE)] or [0]
+                [q.count("case when") for q in re.findall(r"case when(.*?)end", query, re.IGNORECASE)] or [0],
             ),
             "with_clause": int("WITH" in query_upper),
             "values_clause": int("VALUES" in query_upper),
@@ -192,10 +194,7 @@ def train_and_evaluate_model(
         return model.predict(query_scaled)[0]
     else:
         logging.info("Loading the dataset...")
-        if IS_LOCAL_RUN:
-            data = pd.read_csv(DEFAULT_OUTPUT_FILE)
-        else:
-            data = transform_result.copy()
+        data = pd.read_csv(DEFAULT_OUTPUT_FILE) if IS_LOCAL_RUN else transform_result.copy()
 
         logging.info(f"Loaded {len(data)} rows of data.")
 
@@ -234,13 +233,16 @@ def train_and_evaluate_model(
 
         # Append interactions to features
         X_train_final = [
-            features + list(interactions) for features, interactions in zip(X_train_features, X_train_interactions)
+            features + list(interactions)
+            for features, interactions in zip(X_train_features, X_train_interactions, strict=False)
         ]
         X_valid_final = [
-            features + list(interactions) for features, interactions in zip(X_valid_features, X_valid_interactions)
+            features + list(interactions)
+            for features, interactions in zip(X_valid_features, X_valid_interactions, strict=False)
         ]
         X_test_final = [
-            features + list(interactions) for features, interactions in zip(X_test_features, X_test_interactions)
+            features + list(interactions)
+            for features, interactions in zip(X_test_features, X_test_interactions, strict=False)
         ]
 
         # Convert to numpy arrays
@@ -347,15 +349,6 @@ def train_and_evaluate_model(
         logging.info(f"Final prediction: {query_pred} bytes")
         logging.info(f"Prediction range: {lower_bound} bytes to {upper_bound} bytes")
         logging.info(f"Evaluation Metrics - MSE: {mse}, MAE: {mae}, R^2: {r2}")
-
-        print(f"Predicted memory for new query: {query_pred:.2f} bytes ({query_pred / BYTES_IN_ONE_GB:.2f} GB)")
-        print(
-            f"Prediction range: {lower_bound:.2f} bytes ({lower_bound / BYTES_IN_ONE_GB:.2f} GB) "
-            f"to {upper_bound:.2f} bytes ({upper_bound / BYTES_IN_ONE_GB:.2f} GB)"
-        )
-        print(f"Mean squared error (MSE): {mse}")
-        print(f"Mean absolute error (MAE): {mae}")
-        print(f"R-squared (R^2): {r2}")
 
         result = {}
 

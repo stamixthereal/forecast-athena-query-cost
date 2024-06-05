@@ -38,6 +38,15 @@ make clean-up-resources
 
 This will execute the clean-up-resources.sh script located in the scripts directory.
 
+## Troubleshooting
+
+1. If you are getting errors that are connected to the permissions, try to run app with **root rights**.
+2. If you are getting errors that are saying: `ERROR: permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock`, please run the following command:
+
+```bash
+sudo chmod 777 /var/run/docker.sock 
+```
+
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE)

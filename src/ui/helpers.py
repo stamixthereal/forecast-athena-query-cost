@@ -1,35 +1,37 @@
-"""
-Apache License
-Version 2.0, January 2004
-http://www.apache.org/licenses/
+# Apache License
+# Version 2.0, January 2004
+# http://www.apache.org/licenses/
 
-Copyright [2024] [Stanislav Kazanov]
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+# Copyright [2024] [Stanislav Kazanov]
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import os
 import shutil
-import subprocess
-import time
 import sys
+import time
+from pathlib import Path
+from typing import Any
 
+import boto3
+import docker
 import numpy as np
 import pandas as pd
 import streamlit as st
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+sys.path.append(Path(__file__).resolve().parent.parent.parent)
 from src.app import parse_athena_executions, prediction, transform_query_logs
 from src.utils.config import (
+    BYTES_IN_GB,
     DEFAULT_DIR_RAW_DATA,
     DEFAULT_MODEL_FILE,
     DEFAULT_OUTPUT_FILE,
@@ -38,62 +40,66 @@ from src.utils.config import (
 )
 
 
-def clean_pycache():
-    for root, dirs, files in os.walk(".", topdown=True):
+def clean_pycache() -> None:
+    """Remove all __pycache__ directories recursively."""
+    for root, dirs, _ in os.walk(Path()):
         for directory in dirs:
             if directory == "__pycache__":
-                shutil.rmtree(os.path.join(root, directory))
+                shutil.rmtree(Path(root) / directory)
 
 
-def clean_processed_data():
-    processed_data_dir = "data/processed"
-    for filename in os.listdir(processed_data_dir):
-        if filename != ".gitkeep":
-            os.remove(os.path.join(processed_data_dir, filename))
+
+def clean_processed_data() -> None:
+    """Remove all files in the processed data directory except .gitkeep."""
+    processed_data_dir = Path("data/processed")
+    for filename in processed_data_dir.iterdir():
+        if filename.name != ".gitkeep":
+            filename.unlink()
 
 
-def clean_raw_data():
-    raw_data_dir = "data/raw"
-    for filename in os.listdir(raw_data_dir):
-        if filename != ".gitkeep":
-            os.remove(os.path.join(raw_data_dir, filename))
+
+def clean_raw_data() -> None:
+    """Remove all files in the raw data directory except .gitkeep."""
+    raw_data_dir = Path("data/raw")
+    for filename in raw_data_dir.iterdir():
+        if filename.name != ".gitkeep":
+            filename.unlink()
 
 
-def clean_ml_model():
-    ml_model_dir = "src/model"
-    for filename in os.listdir(ml_model_dir):
-        if filename != ".gitkeep":
-            os.remove(os.path.join(ml_model_dir, filename))
+def clean_ml_model() -> None:
+    """Remove all files in the ML model directory except .gitkeep."""
+    ml_model_dir = Path("src/model")
+    for filename in ml_model_dir.iterdir():
+        if filename.name != ".gitkeep":
+            filename.unlink()
 
 
-def clean_python_cache():
+def clean_python_cache() -> None:
+    """Remove Python-related cache directories."""
     shutil.rmtree(".pytest_cache", ignore_errors=True)
     shutil.rmtree(".ruff_cache", ignore_errors=True)
 
 
-def clean_docker_resources():
-    subprocess.run(
-        ["docker", "stop"] + subprocess.getoutput("docker ps -q").split(),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    subprocess.run(
-        ["docker", "rm"] + subprocess.getoutput("docker ps -a -q").split(),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    subprocess.run(
-        ["docker", "rmi"] + subprocess.getoutput("docker images -q").split(),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    subprocess.run(["docker", "image", "prune", "-a", "-f"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(["docker", "container", "prune", "-f"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(["docker", "volume", "prune", "-f"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(["docker", "system", "prune", "-f"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+def clean_docker_resources() -> None:
+    """Clean up all Docker resources including containers, images, and volumes."""
+    client = docker.from_env()
+
+    for container in client.containers.list():
+        container.stop()
+        container.remove()
+
+    for image in client.images.list():
+        client.images.remove(image.id, force=True)
+
+    client.containers.prune()
+    client.images.prune()
+    client.volumes.prune()
+    client.networks.prune()
 
 
-def clean_up_resources():
+
+def clean_up_resources() -> None:
+    """Clean up various system and application resources."""
     clean_pycache()
     clean_processed_data()
     clean_raw_data()
@@ -104,8 +110,12 @@ def clean_up_resources():
 
 @st.experimental_dialog("Please input the query string", width="large")
 def run_prediction(
-    use_pretrained=False, transform_result=None, in_memory_ml_attributes={}, save_ml_attributes_in_memory=False
-):
+    use_pretrained: bool = False,
+    transform_result: pd.DataFrame | None = None,
+    in_memory_ml_attributes: dict[str, Any] | None = None,
+    save_ml_attributes_in_memory: bool = False,
+) -> None:
+    """Run prediction on the provided Athena query string."""
     with st.form("query-input"):
         query_string = st.text_input(
             label="Write down Athena query to predict its scan size",
@@ -119,7 +129,11 @@ def run_prediction(
         st.info(f"Prediction for the query: {query_string[:40]}... has been started")
         with st.spinner("Operation in progress. Please wait..."):
             results = prediction.main(
-                query_string, use_pretrained, transform_result, in_memory_ml_attributes, save_ml_attributes_in_memory
+                query_string,
+                use_pretrained,
+                transform_result,
+                in_memory_ml_attributes,
+                save_ml_attributes_in_memory,
             )
             if isinstance(results, dict):
                 prediction_data = {
@@ -132,9 +146,9 @@ def run_prediction(
                         "R-squared (R^2)",
                     ],
                     "Value": [
-                        f"{results['predicted_memory']:.2f} bytes ({results['predicted_memory'] / 1_073_741_824:.2f} GB)",
-                        f"{results['lower_bound']:.2f} bytes ({results['lower_bound'] / 1_073_741_824:.2f} GB)",
-                        f"{results['upper_bound']:.2f} bytes ({results['upper_bound'] / 1_073_741_824:.2f} GB)",
+                        f"{results['predicted_memory']:.2f} bytes ({results['predicted_memory'] / BYTES_IN_GB:.2f} GB)",
+                        f"{results['lower_bound']:.2f} bytes ({results['lower_bound'] / BYTES_IN_GB:.2f} GB)",
+                        f"{results['upper_bound']:.2f} bytes ({results['upper_bound'] / BYTES_IN_GB:.2f} GB)",
                         results["mse"],
                         results["mae"],
                         results["r2"],
@@ -143,37 +157,34 @@ def run_prediction(
                 st.success("**Here are prediction results!**", icon="🔥")
                 st.write("### Prediction Results")
                 st.table(prediction_data)
-            elif isinstance(results, np.float32) or isinstance(results, float):
-                try:
-                    predicted_memory = results
-                    formatted_memory = f"{predicted_memory:.2f} bytes ({predicted_memory / 1_073_741_824:.2f} GB)"
+            elif isinstance(results, float | np.float32):
+                predicted_memory = results
+                formatted_memory = f"{predicted_memory:.2f} bytes ({predicted_memory / BYTES_IN_GB:.2f} GB)"
 
-                    prediction_data = {
-                        "Metric": ["Predicted Memory"],
-                        "Value": [formatted_memory],
-                    }
+                prediction_data = {
+                    "Metric": ["Predicted Memory"],
+                    "Value": [formatted_memory],
+                }
 
-                    st.success("**Here are prediction results!**", icon="🔥")
-                    st.write("### Prediction Results")
-                    st.table(prediction_data)
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                st.success("**Here are prediction results!**", icon="🔥")
+                st.write("### Prediction Results")
+                st.table(prediction_data)
             else:
                 st.error("Unexpected result type. Expected numpy.float32 or float.")
 
 
-def transform():
+def transform() -> None:
+    """Transform raw query logs into a processed format for prediction."""
     with st.spinner("Operation in progress. Please wait..."):
         if IS_LOCAL_RUN and any(file for file in os.listdir(DEFAULT_DIR_RAW_DATA) if file != ".gitkeep"):
-            st.success("All transformations have been applied!")
             st.write("## Result Dataframe")
             result = transform_query_logs.main()
-            df = pd.read_csv(DEFAULT_OUTPUT_FILE)
-            st.dataframe(df)
-        elif not IS_LOCAL_RUN and st.session_state.query_log_result:
             st.success("All transformations have been applied!")
+            st.dataframe(result)
+        elif not IS_LOCAL_RUN and st.session_state.query_log_result:
             st.write("## Result Dataframe")
             result = transform_query_logs.main(query_log_result=st.session_state.query_log_result)
+            st.success("All transformations have been applied!")
             st.session_state.transform_result = result.copy()
             st.dataframe(result)
         else:
@@ -181,18 +192,8 @@ def transform():
 
 
 @st.experimental_dialog("Clean Up Resources")
-def clean_resources():
-    if "clean_pycache" not in st.session_state:
-        st.session_state.clean_pycache = False
-    if "clean_processed_data" not in st.session_state:
-        st.session_state.clean_processed_data = False
-    if "clean_raw_data" not in st.session_state:
-        st.session_state.clean_raw_data = False
-    if "clean_ml_model" not in st.session_state:
-        st.session_state.clean_ml_model = False
-    if "clean_docker_resources" not in st.session_state:
-        st.session_state.clean_docker_resources = False
-
+def clean_resources() -> None:
+    """Provide an interactive dialog for cleaning various resources."""
     col1, col2 = st.columns(spec=2, gap="small")
     with col1:
         if st.button("Check All", use_container_width=True):
@@ -214,7 +215,8 @@ def clean_resources():
     clean_docker_resources_checkbox = None
     if IS_LOCAL_RUN and "clean_docker_resources" in st.session_state:
         clean_docker_resources_checkbox = st.checkbox(
-            "Clean Docker Resources", value=st.session_state.clean_docker_resources
+            "Clean Docker Resources",
+            value=st.session_state.clean_docker_resources,
         )
     clean_ml_model_checkbox = st.checkbox(
         ":red[Clean ML Model Data]",
@@ -259,7 +261,8 @@ def clean_resources():
 
 
 @st.experimental_dialog("AWS Credentials")
-def set_aws_credentials():
+def set_aws_credentials() -> None:
+    """Parse Athena query logs and display the parsed dataframe."""
     st.info("Write down your AWS credentials")
     with st.form("get-aws-creds"):
         aws_access_key_id = st.text_input("AWS_ACCESS_KEY_ID")
@@ -290,7 +293,8 @@ def set_aws_credentials():
 
 
 @st.experimental_dialog("You are trying to run the parsing process")
-def run_parsing_process(session):
+def run_parsing_process(session: boto3.Session) -> None:
+    """Run parsing process dialog window."""
     st.info("That will take a while, do you want to proceed?")
     col1, col2 = st.columns(spec=2, gap="small")
     with col1:
@@ -303,16 +307,18 @@ def run_parsing_process(session):
             st.rerun()
 
 
-def change_state():
+def change_state() -> None:
+    """Change state."""
     st.session_state.state = True
 
 
-def run_prediction_dialog(use_pretrained, save_ml_attributes_in_memory=False):
-    if use_pretrained and os.path.exists(DEFAULT_MODEL_FILE):
+def run_prediction_dialog(use_pretrained: bool = False, save_ml_attributes_in_memory: bool = False) -> None:
+    """Run dialog window according to the parameters."""
+    if use_pretrained and Path.exists(DEFAULT_MODEL_FILE):
         run_prediction(use_pretrained=use_pretrained)
-    elif use_pretrained and not os.path.exists(DEFAULT_MODEL_FILE):
+    elif use_pretrained and not Path.exists(DEFAULT_MODEL_FILE):
         st.warning("ML model not found, please train yours")
-    elif not use_pretrained and IS_LOCAL_RUN and os.path.exists(DEFAULT_OUTPUT_FILE):
+    elif not use_pretrained and IS_LOCAL_RUN and Path.exists(DEFAULT_OUTPUT_FILE):
         run_prediction()
     elif not use_pretrained and not IS_LOCAL_RUN and not st.session_state.transform_result.empty:
         run_prediction(
