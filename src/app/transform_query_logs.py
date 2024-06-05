@@ -26,7 +26,6 @@ from src.utils.config import DEFAULT_DIR_RAW_DATA, DEFAULT_OUTPUT_FILE, IS_LOCAL
 
 
 class QueryLogProcessor:
-
     """Base class for processing query logs."""
 
     column_names: ClassVar = [
@@ -73,7 +72,6 @@ class QueryLogProcessor:
 
 
 class LocalQueryLogProcessor(QueryLogProcessor):
-
     """Processes query logs from local JSON files."""
 
     def __init__(self, input_dir: str, output_file: str) -> None:
@@ -112,7 +110,6 @@ class LocalQueryLogProcessor(QueryLogProcessor):
 
 
 class InMemoryQueryLogProcessor(QueryLogProcessor):
-
     """Processes query logs from in-memory data."""
 
     def __init__(self, query_log_result: dict[str, Any]) -> None:

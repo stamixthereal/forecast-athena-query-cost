@@ -31,7 +31,6 @@ logging.basicConfig(level=logging.INFO)
 
 
 class QueryLogDownloader:
-
     """QueryLogDownloader is a class for downloading query logs from AWS Athena in parallel for multiple workgroups."""
 
     def __init__(self, session: boto3.Session, output_dir: str = DEFAULT_DIR_RAW_DATA) -> None:
@@ -81,7 +80,6 @@ class QueryLogDownloader:
 
 
 class QueryLogManager:
-
     """QueryLogManager is a class for downloading query logs for a specific workgroup."""
 
     def __init__(self, session: boto3.Session, output_dir: str, workgroup_name: str) -> None:
