@@ -35,7 +35,7 @@ def is_dml_and_succeeded(data: dict) -> bool:
     return data.get("StatementType") == "DML" and data.get("Status", {}).get("State") == "SUCCEEDED"
 
 
-def get_csv_row(data: dict) -> list | None:
+def get_row(data: dict) -> list | None:
     """Convert the query log to a CSV row format."""
     if not is_dml_and_succeeded(data):
         return None
@@ -56,12 +56,12 @@ def process_file(file_path: str) -> list | None:
     """Process a single JSON file and return its CSV row representation."""
     with Path.open(file_path) as f:
         data = json.load(f)
-        return get_csv_row(data)
+        return get_row(data)
 
 
-def process_file_in_memory(query_log: dict[str, Any]) -> list | None:
+def process_data_in_memory(query_log: dict[str, Any]) -> list | None:
     """Process a single JSON file from in-memory data and return its CSV row representation."""
-    return get_csv_row(query_log)
+    return get_row(query_log)
 
 
 def process_query_logs(
@@ -70,7 +70,7 @@ def process_query_logs(
     query_log_result: dict[str:Any] | None,
 ) -> pd.DataFrame:
     """Process query logs from input directory and write to output CSV file."""
-    logger.info(f"Starting the processing of query logs from directory: {input_dir}.")
+    logger.info("Starting the processing of query logs")
 
     column_names = [
         "query_id",
@@ -93,7 +93,8 @@ def process_query_logs(
         result_df.to_csv(output_file)
         logger.info(f"Processing completed. Data written to {output_file}.")
         return result_df
-    rows = [process_file_in_memory(query_log) for query_log in query_log_result.values() if query_log]
+    rows = [result for query_log in query_log_result.values() if query_log
+        for result in [process_data_in_memory(query_log)] if result is not None]
     result_df = pd.DataFrame(rows, columns=column_names)
     logger.info("Data has been processed in memory.")
     return result_df
