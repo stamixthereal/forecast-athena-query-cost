@@ -104,14 +104,16 @@ class QueryLogManager:
         """Download a query log for a specific execution ID."""
         self.logger.info(f"Downloading query log for execution ID: {query_execution_id}")
         response = self.athena.get_query_execution(QueryExecutionId=query_execution_id)
-        query_log = json.dumps(
-            response["QueryExecution"],
-            indent=4,
-            default=lambda x: x.isoformat() if isinstance(x, datetime.datetime) else x,
-        )
+        query_log = json.dumps(response["QueryExecution"], indent=4, default=self._json_default)
         log_file_path = Path(self.output_dir) / f"{self.workgroup_name}-{query_execution_id}.json"
         self._write_log_to_file(log_file_path, query_log)
         self.logger.info(f"Downloaded query log for execution ID: {query_execution_id}")
+
+    def _json_default(self, obj: object) -> str:
+        """JSON serializer for objects not serializable by default json code."""
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        raise TypeError(f"Type {type(obj)} not serializable")
 
     def _write_log_to_file(self, file_path: str, log: str) -> None:
         """Write log to file."""

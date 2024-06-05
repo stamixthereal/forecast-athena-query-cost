@@ -35,7 +35,7 @@ target-version = "py312"
 
 [lint]
 select = ["ALL"]
-ignore = ["D107", "G004", "D100", "ANN101", "D104", "D203", "D213", "BLE001", "FBT001", "FBT002", "S603", "RUF005"]
+ignore = ["D107", "G004", "D100", "ANN101", "D104", "D203", "D213", "BLE001", "FBT001", "FBT002", "S603", "RUF005", "TRY003", "EM102"]
 fixable = ["ALL"]
 unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
