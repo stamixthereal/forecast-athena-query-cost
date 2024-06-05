@@ -17,7 +17,6 @@
 
 import os
 import shutil
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -27,8 +26,6 @@ import docker
 import numpy as np
 import pandas as pd
 import streamlit as st
-
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.app import parse_athena_executions, prediction, transform_query_logs
 from src.utils.config import (

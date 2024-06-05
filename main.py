@@ -17,8 +17,8 @@
 
 import pandas as pd
 import streamlit as st
-from helpers import clean_resources, run_parsing_process, run_prediction_dialog, set_aws_credentials, transform
 
+from src.ui.helpers import clean_resources, run_parsing_process, run_prediction_dialog, set_aws_credentials, transform
 from src.utils.config import IS_LOCAL_RUN
 
 if "made_ml_training" not in st.session_state:

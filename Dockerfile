@@ -16,4 +16,4 @@ RUN pip install --no-cache-dir -r /forecast-sql-query/requirements.txt
 
 WORKDIR /forecast-sql-query
 
-CMD ["streamlit", "run", "src/ui/main.py"]
+CMD ["streamlit", "run", "main.py"]
