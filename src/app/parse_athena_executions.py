@@ -35,10 +35,10 @@ class QueryLogDownloader:
 
     def __init__(self, session: boto3.Session, output_dir: str = DEFAULT_DIR_RAW_DATA) -> None:
         self.session = session
-        self.output_dir = output_dir
+        self.output_dir = Path(output_dir)
         self.max_workers = min(cpu_count(), 20)
         self.logger = logging.getLogger(self.__class__.__name__)
-        Path.mkdir(self.output_dir, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def download_query_logs(self) -> None:
         """Download query logs for multiple workgroups."""
@@ -56,17 +56,14 @@ class QueryLogDownloader:
         self.logger.info(f"Found workgroups: {workgroup_names}")
         return workgroup_names
 
-    def _download_in_parallel(self, workgroups: list[dict]) -> None:
+    def _download_in_parallel(self, workgroups: list[str]) -> None:
         """Download query logs in parallel using ThreadPoolExecutor."""
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = [executor.submit(self._download_query_logs_for_workgroup, workgroup) for workgroup in workgroups]
             for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception:
-                    self.logger.exception("Error downloading logs")
+                future.result()
 
-    def _download_sequentially(self, workgroups: list[dict]) -> None:
+    def _download_sequentially(self, workgroups: list[str]) -> None:
         """Download query logs sequentially."""
         for workgroup in workgroups:
             self._download_query_logs_for_workgroup(workgroup)
@@ -82,7 +79,7 @@ class QueryLogDownloader:
 class QueryLogManager:
     """QueryLogManager is a class for downloading query logs for a specific workgroup."""
 
-    def __init__(self, session: boto3.Session, output_dir: str, workgroup_name: str) -> None:
+    def __init__(self, session: boto3.Session, output_dir: Path, workgroup_name: str) -> None:
         self.output_dir = output_dir
         self.workgroup_name = workgroup_name
         self.session = session
@@ -105,27 +102,29 @@ class QueryLogManager:
         self.logger.info(f"Downloading query log for execution ID: {query_execution_id}")
         response = self.athena.get_query_execution(QueryExecutionId=query_execution_id)
         query_log = json.dumps(response["QueryExecution"], indent=4, default=self._json_default)
-        log_file_path = Path(self.output_dir) / f"{self.workgroup_name}-{query_execution_id}.json"
+        log_file_path = self.output_dir / f"{self.workgroup_name}-{query_execution_id}.json"
         self._write_log_to_file(log_file_path, query_log)
         self.logger.info(f"Downloaded query log for execution ID: {query_execution_id}")
 
-    def _json_default(self, obj: object) -> str:
+    @staticmethod
+    def _json_default(obj: object) -> str:
         """JSON serializer for objects not serializable by default json code."""
         if isinstance(obj, datetime.datetime):
             return obj.isoformat()
         raise TypeError(f"Type {type(obj)} not serializable")
 
-    def _write_log_to_file(self, file_path: str, log: str) -> None:
+    @staticmethod
+    def _write_log_to_file(file_path: Path, log: str) -> None:
         """Write log to file."""
         if IS_LOCAL_RUN:
-            with Path.open(file_path, "w") as f:
+            with file_path.open("w") as f:
                 f.write(log)
         else:
             dict_query_log = json.loads(log)
             st.session_state.query_log_result[file_path] = dict_query_log
 
 
-def main(session: boto3.Session) -> None:
+def main(session: boto3.Session = None) -> None:
     """Download query logs from AWS Athena for multiple workgroups."""
     downloader = QueryLogDownloader(session)
     downloader.download_query_logs()

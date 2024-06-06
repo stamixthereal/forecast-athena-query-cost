@@ -65,7 +65,7 @@ class QueryLogProcessor:
 
         return [query_id, query, peak_memory_bytes, cpu_time_ms]
 
-    def process_query_logs(self) -> pd.DataFrame:
+    def process_query_logs(self) -> None:
         """Process query logs and write to output CSV file."""
         error_msg = "Subclasses should implement this method"
         raise NotImplementedError(error_msg)
@@ -76,12 +76,12 @@ class LocalQueryLogProcessor(QueryLogProcessor):
 
     def __init__(self, input_dir: str, output_file: str) -> None:
         super().__init__()
-        self.input_dir = input_dir
+        self.input_dir = Path(input_dir)
         self.output_file = output_file
 
-    def process_file(self, file_path: str) -> list[Any] | None:
+    def process_file(self, file_path: Path) -> list[Any] | None:
         """Process a single JSON file and return its CSV row representation."""
-        with Path.open(file_path) as f:
+        with file_path.open() as f:
             data = json.load(f)
             return self.get_row(data)
 
