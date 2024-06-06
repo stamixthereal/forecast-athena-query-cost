@@ -6,7 +6,7 @@ VENV_DIR = venv
 .PHONY: local-venv-setup
 local-venv-setup:
 	python3 -m venv $(VENV_DIR)
-	./$(VENV_DIR)/bin/pip install -r requirements.txt
+	./$(VENV_DIR)/bin/pip install -r requirements.txt --no-cache
 
 # Grant execution permissions to scripts
 .PHONY: grant-execution-permissions

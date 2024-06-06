@@ -1,4 +1,5 @@
 exclude = [
+    "src/app/prediction.py",
     ".bzr",
     ".direnv",
     ".eggs",
