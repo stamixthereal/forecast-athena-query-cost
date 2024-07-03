@@ -15,16 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Callable
+from typing import Any
+
 import pandas as pd
 import streamlit as st
-from typing import Callable, Dict, Any
+
 from src.ui.helpers import clean_resources, run_parsing_process, run_prediction_dialog, set_aws_credentials, transform
 from src.utils.config import IS_LOCAL_RUN
 
 
 def initialize_session_state() -> None:
     """Initialize session state variables."""
-    default_values: Dict[str, Any] = {
+    default_values: dict[str, Any] = {
         "made_ml_training": False,
         "query_log_result": {},
         "transform_result": pd.DataFrame(),
@@ -94,7 +97,7 @@ def process_athena_executions() -> None:
 
 
 def main() -> None:
-    """Main function to run the Streamlit application."""
+    """Run the Streamlit application."""
     initialize_session_state()
 
     st.title("Forecast AWS Athena Query Application")

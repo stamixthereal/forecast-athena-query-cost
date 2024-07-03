@@ -19,7 +19,7 @@ import os
 import shutil
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import boto3
 import docker
@@ -81,10 +81,10 @@ def format_memory(memory: float) -> str:
 
 @st.experimental_dialog("Please input the query string", width="large")
 def run_prediction(
-        use_pretrained: bool = False,
-        transform_result: Optional[pd.DataFrame] = None,
-        in_memory_ml_attributes: Optional[dict[str, Any]] = None,
-        save_ml_attributes_in_memory: bool = False,
+    use_pretrained: bool = False,
+    transform_result: pd.DataFrame | None = None,
+    in_memory_ml_attributes: dict[str, Any] | None = None,
+    save_ml_attributes_in_memory: bool = False,
 ) -> None:
     """Run prediction on the provided Athena query string."""
     with st.form("query-input"):
@@ -122,15 +122,15 @@ def display_prediction_results(results: dict[str, Any] | float | np.float32) -> 
                 "R-squared (R^2)",
             ],
             "Value": [
-                format_memory(results['predicted_memory']),
-                format_memory(results['lower_bound']),
-                format_memory(results['upper_bound']),
+                format_memory(results["predicted_memory"]),
+                format_memory(results["lower_bound"]),
+                format_memory(results["upper_bound"]),
                 results["mse"],
                 results["mae"],
                 results["r2"],
             ],
         }
-    elif isinstance(results, (float, np.float32)):
+    elif isinstance(results, (float | np.float32)):
         prediction_data = {
             "Metric": ["Predicted Memory"],
             "Value": [format_memory(results)],
