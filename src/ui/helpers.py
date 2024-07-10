@@ -38,13 +38,6 @@ from src.utils.config import (
 )
 
 
-def clean_directory(directory: Path, exclude: str = ".gitkeep") -> None:
-    """Remove all files in a directory except the specified file."""
-    for filename in directory.iterdir():
-        if filename.name != exclude:
-            filename.unlink()
-
-
 def clean_pycache() -> None:
     """Remove all __pycache__ directories recursively."""
     for root, dirs, _ in os.walk(Path()):
@@ -53,10 +46,34 @@ def clean_pycache() -> None:
                 shutil.rmtree(Path(root) / directory)
 
 
+def clean_processed_data() -> None:
+    """Remove all files in the processed data directory except .gitkeep."""
+    processed_data_dir = Path("data/processed")
+    for filename in processed_data_dir.iterdir():
+        if filename.name != ".gitkeep":
+            filename.unlink()
+
+
+def clean_raw_data() -> None:
+    """Remove all files in the raw data directory except .gitkeep."""
+    raw_data_dir = Path("data/raw")
+    for filename in raw_data_dir.iterdir():
+        if filename.name != ".gitkeep":
+            filename.unlink()
+
+
+def clean_ml_model() -> None:
+    """Remove all files in the ML model directory except .gitkeep."""
+    ml_model_dir = Path("src/model")
+    for filename in ml_model_dir.iterdir():
+        if filename.name != ".gitkeep":
+            filename.unlink()
+
+
 def clean_python_cache() -> None:
     """Remove Python-related cache directories."""
-    for cache_dir in [".pytest_cache", ".ruff_cache"]:
-        shutil.rmtree(cache_dir, ignore_errors=True)
+    shutil.rmtree(".pytest_cache", ignore_errors=True)
+    shutil.rmtree(".ruff_cache", ignore_errors=True)
 
 
 def clean_docker_resources() -> None:
@@ -70,31 +87,40 @@ def clean_docker_resources() -> None:
     for image in client.images.list():
         client.images.remove(image.id, force=True)
 
-    for resource in [client.containers, client.images, client.volumes, client.networks]:
-        resource.prune()
+    client.containers.prune()
+    client.images.prune()
+    client.volumes.prune()
+    client.networks.prune()
 
 
-def format_memory(memory: float) -> str:
-    """Format memory size in bytes to a human-readable string."""
-    return f"{memory:.2f} bytes ({memory / BYTES_IN_GB:.2f} GB)"
+def clean_up_resources() -> None:
+    """Clean up various system and application resources."""
+    clean_pycache()
+    clean_processed_data()
+    clean_raw_data()
+    clean_ml_model()
+    clean_python_cache()
+    clean_docker_resources()
 
 
 @st.experimental_dialog("Please input the query string", width="large")
 def run_prediction(
-    use_pretrained: bool = False,
-    transform_result: pd.DataFrame | None = None,
-    in_memory_ml_attributes: dict[str, Any] | None = None,
-    save_ml_attributes_in_memory: bool = False,
+        use_pretrained: bool = False,
+        transform_result: pd.DataFrame | None = None,
+        in_memory_ml_attributes: dict[str, Any] | None = None,
+        save_ml_attributes_in_memory: bool = False,
 ) -> None:
     """Run prediction on the provided Athena query string."""
     with st.form("query-input"):
         query_string = st.text_input(
             label="Write down Athena query to predict its scan size",
-            placeholder="SELECT columns FROM tablename LIMIT 10",
+            placeholder="SELECT colums FROM tablename LIMIT 10",
         )
         submit = st.form_submit_button(label="Submit", use_container_width=True)
-
-    if submit and query_string:
+    if submit:
+        if not query_string:
+            st.warning("Please provide a query string")
+            st.stop()
         st.info(f"Prediction for the query: {query_string[:40]}... has been started")
         with st.spinner("Operation in progress. Please wait..."):
             results = prediction.main(
@@ -104,149 +130,161 @@ def run_prediction(
                 in_memory_ml_attributes,
                 save_ml_attributes_in_memory,
             )
-            display_prediction_results(results)
-    elif submit:
-        st.warning("Please provide a query string")
+            if isinstance(results, dict):
+                prediction_data = {
+                    "Metric": [
+                        "Predicted Memory",
+                        "Lower Bound",
+                        "Upper Bound",
+                        "Mean Squared Error (MSE)",
+                        "Mean Absolute Error (MAE)",
+                        "R-squared (R^2)",
+                    ],
+                    "Value": [
+                        f"{results['predicted_memory']:.2f} bytes ({results['predicted_memory'] / BYTES_IN_GB:.2f} GB)",
+                        f"{results['lower_bound']:.2f} bytes ({results['lower_bound'] / BYTES_IN_GB:.2f} GB)",
+                        f"{results['upper_bound']:.2f} bytes ({results['upper_bound'] / BYTES_IN_GB:.2f} GB)",
+                        results["mse"],
+                        results["mae"],
+                        results["r2"],
+                    ],
+                }
+                st.success("**Here are prediction results!**", icon="🔥")
+                st.write("### Prediction Results")
+                st.table(prediction_data)
+            elif isinstance(results, float | np.float32):
+                predicted_memory = results
+                formatted_memory = f"{predicted_memory:.2f} bytes ({predicted_memory / BYTES_IN_GB:.2f} GB)"
 
+                prediction_data = {
+                    "Metric": ["Predicted Memory"],
+                    "Value": [formatted_memory],
+                }
 
-def display_prediction_results(results: dict[str, Any] | float | np.float32) -> None:
-    """Display prediction results in a formatted table."""
-    if isinstance(results, dict):
-        prediction_data = {
-            "Metric": [
-                "Predicted Memory",
-                "Lower Bound",
-                "Upper Bound",
-                "Mean Squared Error (MSE)",
-                "Mean Absolute Error (MAE)",
-                "R-squared (R^2)",
-            ],
-            "Value": [
-                format_memory(results["predicted_memory"]),
-                format_memory(results["lower_bound"]),
-                format_memory(results["upper_bound"]),
-                results["mse"],
-                results["mae"],
-                results["r2"],
-            ],
-        }
-    elif isinstance(results, (float | np.float32)):
-        prediction_data = {
-            "Metric": ["Predicted Memory"],
-            "Value": [format_memory(results)],
-        }
-    else:
-        st.error("Unexpected result type. Expected dict, float, or numpy.float32.")
-        return
-
-    st.success("**Here are prediction results!**", icon="🔥")
-    st.write("### Prediction Results")
-    st.table(prediction_data)
+                st.success("**Here are prediction results!**", icon="🔥")
+                st.write("### Prediction Results")
+                st.table(prediction_data)
+            else:
+                st.error("Unexpected result type. Expected numpy.float32 or float.")
 
 
 def transform() -> None:
     """Transform raw query logs into a processed format for prediction."""
     with st.spinner("Operation in progress. Please wait..."):
         if IS_LOCAL_RUN and any(file for file in os.listdir(DEFAULT_DIR_RAW_DATA) if file != ".gitkeep"):
+            st.write("## Result Dataframe")
             result = transform_query_logs.main()
+            st.success("All transformations have been applied!")
+            st.dataframe(result)
         elif not IS_LOCAL_RUN and st.session_state.query_log_result:
+            st.write("## Result Dataframe")
             result = transform_query_logs.main(query_log_result=st.session_state.query_log_result)
+            st.success("All transformations have been applied!")
             st.session_state.transform_result = result.copy()
+            st.dataframe(result)
         else:
             st.warning("No files found in the directory, please parse logs first :)")
-            return
-
-        st.success("All transformations have been applied!")
-        st.write("## Result Dataframe")
-        st.dataframe(result)
 
 
 @st.experimental_dialog("Clean Up Resources")
 def clean_resources() -> None:
     """Provide an interactive dialog for cleaning various resources."""
-    resources = {
-        "clean_pycache": "Clean Python Cache",
-        "clean_processed_data": "Clean Processed Data",
-        "clean_raw_data": "Clean Raw Data",
-        "clean_ml_model": "Clean ML Model Data",
-    }
-    if IS_LOCAL_RUN:
-        resources["clean_docker_resources"] = "Clean Docker Resources"
-
     col1, col2 = st.columns(spec=2, gap="small")
     with col1:
         if st.button("Check All", use_container_width=True):
-            for key in resources:
-                st.session_state[key] = True
+            st.session_state.clean_pycache = True
+            st.session_state.clean_processed_data = True
+            st.session_state.clean_raw_data = True
+            st.session_state.clean_docker_resources = True
     with col2:
         if st.button("Uncheck All", use_container_width=True):
-            for key in resources:
-                st.session_state[key] = False
+            st.session_state.clean_pycache = False
+            st.session_state.clean_processed_data = False
+            st.session_state.clean_raw_data = False
+            st.session_state.clean_ml_model = False
+            st.session_state.clean_docker_resources = False
 
-    checkboxes = {}
-    for key, label in resources.items():
-        if key == "clean_ml_model":
-            checkboxes[key] = st.checkbox(
-                f":red[{label}]",
-                value=st.session_state.get(key, False),
-                help="If you drop initial model, new model training will be too slow!",
-            )
-        else:
-            checkboxes[key] = st.checkbox(label, value=st.session_state.get(key, False))
-
+    clean_pycache_checkbox = st.checkbox("Clean Python Cache", value=st.session_state.clean_pycache)
+    clean_processed_data_checkbox = st.checkbox("Clean Processed Data", value=st.session_state.clean_processed_data)
+    clean_raw_data_checkbox = st.checkbox("Clean Raw Data", value=st.session_state.clean_raw_data)
+    clean_docker_resources_checkbox = None
+    if IS_LOCAL_RUN and "clean_docker_resources" in st.session_state:
+        clean_docker_resources_checkbox = st.checkbox(
+            "Clean Docker Resources",
+            value=st.session_state.clean_docker_resources,
+        )
+    clean_ml_model_checkbox = st.checkbox(
+        ":red[Clean ML Model Data]",
+        value=st.session_state.clean_ml_model,
+        help="If you drop initial model, new model training will be too slow!",
+    )
     if st.button("Clean Selected Resources", type="primary", use_container_width=True):
-        if not any(checkboxes.values()):
+        if (
+                not clean_pycache_checkbox
+                and not clean_processed_data_checkbox
+                and not clean_raw_data_checkbox
+                and not clean_ml_model_checkbox
+                and not clean_docker_resources_checkbox
+        ):
             st.warning("Please mark necessary points first")
+            st.stop()
         else:
-            clean_selected_resources(checkboxes)
-
-
-def clean_selected_resources(checkboxes: dict[str, bool]) -> None:
-    """Clean the resources selected by the user."""
-    with st.status("Cleaning resources...", expanded=True) as status:
-        clean_functions = {
-            "clean_pycache": lambda: (clean_pycache(), clean_python_cache()),
-            "clean_processed_data": lambda: clean_directory(Path("data/processed")),
-            "clean_raw_data": lambda: clean_directory(Path("data/raw")),
-            "clean_ml_model": lambda: clean_directory(Path("src/model")),
-            "clean_docker_resources": clean_docker_resources,
-        }
-        for key, checked in checkboxes.items():
-            if checked:
-                clean_functions[key]()
-                time.sleep(1)
-                st.write(f"Cleaned {key.replace('clean_', '').replace('_', ' ').title()}")
-        status.update(label="Cleaning complete!", state="complete", expanded=False)
-    st.success("Selected resources cleaned successfully.")
+            with st.status("Cleaning resources...", expanded=True) as status:
+                if clean_pycache_checkbox:
+                    clean_pycache()
+                    clean_python_cache()
+                    time.sleep(1)
+                    st.write("Cleaned Python Cache: .pytest_cache, .ruff_cache, etc.")
+                if clean_processed_data_checkbox:
+                    clean_processed_data()
+                    time.sleep(1)
+                    st.write("Cleaned Processed Data")
+                if clean_raw_data_checkbox:
+                    clean_raw_data()
+                    time.sleep(1)
+                    st.write("Cleaned Raw Data")
+                if clean_ml_model_checkbox:
+                    clean_ml_model()
+                    time.sleep(1)
+                    st.write("Cleaned ML Model Data")
+                if clean_docker_resources_checkbox:
+                    clean_docker_resources()
+                    time.sleep(1)
+                    st.write("Cleaned Docker Resources")
+                status.update(label="Cleaning complete!", state="complete", expanded=False)
+            st.success("Selected resources cleaned successfully.")
 
 
 @st.experimental_dialog("AWS Credentials")
 def set_aws_credentials() -> None:
-    """Set AWS credentials for the session."""
+    """Parse Athena query logs and display the parsed dataframe."""
     st.info("Write down your AWS credentials")
     with st.form("get-aws-creds"):
         aws_access_key_id = st.text_input("AWS_ACCESS_KEY_ID")
         aws_secret_access_key = st.text_input("AWS_SECRET_ACCESS_KEY", type="password")
         aws_session_token = st.text_input("AWS_SESSION_TOKEN", type="password")
         aws_default_region = st.text_input("AWS_DEFAULT_REGION", value="us-east-1")
+
         submit_button = st.form_submit_button("Submit", use_container_width=True, type="primary")
 
     if submit_button:
-        if all([aws_access_key_id, aws_secret_access_key, aws_session_token, aws_default_region]):
+        if not aws_access_key_id or not aws_secret_access_key or not aws_session_token or not aws_default_region:
+            st.error("All fields are required!")
+            st.stop()
+        else:
+            session = update_aws_session(
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_session_token=aws_session_token,
+                aws_default_region=aws_default_region,
+            )
             try:
-                session = update_aws_session(
-                    aws_access_key_id=aws_access_key_id,
-                    aws_secret_access_key=aws_secret_access_key,
-                    aws_session_token=aws_session_token,
-                    aws_default_region=aws_default_region,
-                )
                 session.client("athena").list_work_groups()
                 st.session_state.aws_credentials = session
                 st.rerun()
             except Exception:
                 st.warning("Please add valid AWS credentials")
-        else:
-            st.error("All fields are required!")
+                st.stop()
 
 
 @st.experimental_dialog("You are trying to run the parsing process")
