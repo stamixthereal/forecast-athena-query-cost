@@ -354,7 +354,7 @@ def preview_raw_data() -> None:
 
 def get_transformed_data() -> pd.DataFrame:
     """Get transformed data."""
-    transformed_data_df = None
+    transformed_data_df = pd.DataFrame()
     if IS_LOCAL_RUN and Path(DEFAULT_OUTPUT_FILE).exists():
         transformed_data_df = pd.read_csv(DEFAULT_OUTPUT_FILE)
     elif not IS_LOCAL_RUN and not st.session_state.transform_result.empty:
