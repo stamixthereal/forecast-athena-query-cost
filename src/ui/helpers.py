@@ -343,7 +343,8 @@ def preview_raw_data() -> None:
             with random_raw_data_file.open() as f:
                 raw_data = json.load(f)
     elif not IS_LOCAL_RUN and st.session_state.query_log_result:
-        raw_data = random.SystemRandom().choice(st.session_state.query_log_result)
+        random_key = random.SystemRandom().choice(list(st.session_state.query_log_result.keys()))
+        raw_data = st.session_state.query_log_result[random_key]
 
     if raw_data is not None:
         st.header("Sample (Random) File From Raw Data")
