@@ -391,7 +391,7 @@ def preview_transformed_data() -> None:
     """Preview transformed data."""
     transformed_data = get_transformed_data()
 
-    if transformed_data is not None:
+    if not transformed_data.empty:
         st.header("Transformed Dataframe")
         st.dataframe(transformed_data)
 
