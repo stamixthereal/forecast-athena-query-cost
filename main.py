@@ -27,44 +27,25 @@ from src.ui.helpers import (
 )
 from src.utils.config import IS_LOCAL_RUN
 
-if "made_ml_training" not in st.session_state:
-    st.session_state.made_ml_training = False
+default_session_state = {
+    "made_ml_training": False,
+    "query_log_result": {},
+    "transform_result": pd.DataFrame(),
+    "model": None,
+    "poly_features": None,
+    "scaler": None,
+    "state": False,
+    "aws_credentials": None,
+    "clean_pycache": False,
+    "clean_processed_data": False,
+    "clean_raw_data": False,
+    "clean_ml_model": False,
+    "clean_docker_resources": False,
+}
 
-if "query_log_result" not in st.session_state:
-    st.session_state.query_log_result = {}
-
-if "transform_result" not in st.session_state:
-    st.session_state.transform_result = pd.DataFrame()
-
-if "model" not in st.session_state:
-    st.session_state.model = None
-
-if "poly_features" not in st.session_state:
-    st.session_state.poly_features = None
-
-if "scaler" not in st.session_state:
-    st.session_state.scaler = None
-
-if "state" not in st.session_state:
-    st.session_state.state = False
-
-if "aws_credentials" not in st.session_state:
-    st.session_state.aws_credentials = None
-
-if "clean_pycache" not in st.session_state:
-    st.session_state.clean_pycache = False
-
-if "clean_processed_data" not in st.session_state:
-    st.session_state.clean_processed_data = False
-
-if "clean_raw_data" not in st.session_state:
-    st.session_state.clean_raw_data = False
-
-if "clean_ml_model" not in st.session_state:
-    st.session_state.clean_ml_model = False
-
-if "clean_docker_resources" not in st.session_state:
-    st.session_state.clean_docker_resources = False
+for key, value in default_session_state.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 st.title("Forecast AWS Athena Query Application")
 
