@@ -1,14 +1,11 @@
 # Apache License
 # Version 2.0, January 2004
 # http://www.apache.org/licenses/
-
 # Copyright [2024] [Stanislav Kazanov]
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-
 #     http://www.apache.org/licenses/LICENSE-2.0
-
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,7 +15,16 @@
 import pandas as pd
 import streamlit as st
 
-from src.ui.helpers import clean_resources, run_parsing_process, run_prediction_dialog, set_aws_credentials, transform
+from src.ui.helpers import (
+    clean_resources,
+    get_transformed_data,
+    preview_raw_data,
+    preview_transformed_data,
+    run_parsing_process,
+    run_prediction_dialog,
+    set_aws_credentials,
+    transform,
+)
 from src.utils.config import IS_LOCAL_RUN
 
 if "made_ml_training" not in st.session_state:
@@ -60,13 +66,32 @@ if "clean_ml_model" not in st.session_state:
 if "clean_docker_resources" not in st.session_state:
     st.session_state.clean_docker_resources = False
 
-
 st.title("Forecast AWS Athena Query Application")
 
-st.write("### Choose the model for prediction")
+st.header("Choose the model for prediction", divider="red")
 
+model_choice = st.radio(
+    label="Choose the model",
+    label_visibility="collapsed",
+    options=("Pretrained Model", "Train Your Own Model"),
+)
 
-model_choice = st.radio("## Choose Your Model:", ("Pretrained Model", "Train Your Own Model"))
+with st.sidebar:
+    with st.popover("Preview Raw Data", use_container_width=True):
+        preview_raw_data()
+
+    with st.popover("Preview Transformed Data", use_container_width=True):
+        preview_transformed_data()
+
+    transformed_data_df = get_transformed_data()
+    if not transformed_data_df.empty:
+        st.download_button(
+            label="Download Transformed Data",
+            data=transformed_data_df.to_csv(),
+            file_name="transformed_data.csv",
+            use_container_width=True,
+            type="primary",
+        )
 
 if model_choice == "Pretrained Model":
     st.write("### Choose an action")

@@ -1,21 +1,20 @@
 # Apache License
 # Version 2.0, January 2004
 # http://www.apache.org/licenses/
-
 # Copyright [2024] [Stanislav Kazanov]
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-
 #     http://www.apache.org/licenses/LICENSE-2.0
-
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
+import random
 import shutil
 import time
 from pathlib import Path
@@ -332,3 +331,85 @@ def run_prediction_dialog(use_pretrained: bool = False, save_ml_attributes_in_me
         )
     else:
         st.warning("You can't work with the model, please parse logs first :)")
+
+
+def preview_raw_data() -> None:
+    """Preview raw data."""
+    raw_data = None
+    if IS_LOCAL_RUN:
+        raw_data_files = [file for file in Path(DEFAULT_DIR_RAW_DATA).iterdir() if file.name != ".gitkeep"]
+        if raw_data_files:
+            random_raw_data_file = random.SystemRandom().choice(raw_data_files)
+            with random_raw_data_file.open() as f:
+                raw_data = json.load(f)
+    elif not IS_LOCAL_RUN and st.session_state.query_log_result:
+        raw_data = random.SystemRandom().choice(st.session_state.query_log_result)
+
+    if raw_data is not None:
+        st.header("Sample (Random) File From Raw Data")
+        st.json(raw_data)
+    else:
+        st.write("No raw data yet...")
+
+
+def get_transformed_data() -> pd.DataFrame:
+    """Get transformed data."""
+    transformed_data_df = None
+    if IS_LOCAL_RUN and Path(DEFAULT_OUTPUT_FILE).exists():
+        transformed_data_df = pd.read_csv(DEFAULT_OUTPUT_FILE)
+    elif not IS_LOCAL_RUN and not st.session_state.transform_result.empty:
+        transformed_data_df = st.session_state.transform_result
+
+    return transformed_data_df
+
+
+def process_data(df_to_process: pd.DataFrame) -> pd.DataFrame:
+    """Process the data."""
+    if df_to_process is not None:
+        # Convert memory from bytes to megabytes for easier readability
+        df_to_process["peak_memory_mb"] = df_to_process["peak_memory_bytes"] / (1024 ** 2)
+
+        # Define the bins for peak memory usage
+        bins = [0, 10, 50, 100, 500, 1000, df_to_process["peak_memory_mb"].max()]
+        labels = ["0-10 MB", "10-50 MB", "50-100 MB", "100-500 MB", "500-1000 MB", "1000+ MB"]
+        df_to_process["memory_bin"] = pd.cut(df_to_process["peak_memory_mb"], bins=bins, labels=labels, right=False)
+
+    return df_to_process
+
+
+def get_memory_distribution(df: pd.DataFrame) -> pd.DataFrame | None:
+    """Get memory distribution."""
+    if df is not None:
+        memory_distribution = df["memory_bin"].value_counts().sort_index().reset_index()
+        memory_distribution.columns = ["Peak Memory Range", "Number of Queries"]
+
+        return memory_distribution
+    return None
+
+
+def preview_transformed_data() -> None:
+    """Preview transformed data."""
+    transformed_data = get_transformed_data()
+
+    if transformed_data is not None:
+        st.header("Transformed Dataframe")
+        st.dataframe(transformed_data)
+
+        transformed_data = process_data(transformed_data)
+
+        memory_distribution = get_memory_distribution(transformed_data)
+
+        if memory_distribution is not None:
+            # Scatter Chart: Distribution of Peak Memory Usage
+            st.header("Distribution of Queries by Peak Memory Usage (MB)")
+            scatter_data = pd.DataFrame({
+                "Peak Memory Range": memory_distribution["Peak Memory Range"],
+                "Number of Queries": memory_distribution["Number of Queries"],
+            })
+
+            st.bar_chart(scatter_data.set_index("Peak Memory Range"))
+        else:
+            st.write("No memory distribution data available.")
+    else:
+        st.write("No transformed data yet...")
+
