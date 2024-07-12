@@ -91,25 +91,16 @@ elif model_choice == "Train Your Own Model":
     process_button = st.button("Process Athena Executions", use_container_width=True)
     transform_button = st.button("Transform Query Logs", use_container_width=True)
     train_and_prediction_button = st.button("Train Model And Make Prediction", use_container_width=True)
-    prediction_button = None
-    prediction_button_disabled = None
-    if not IS_LOCAL_RUN:
-        if st.session_state.model and st.session_state.scaler and st.session_state.poly_features:
-            prediction_button = st.button("Make Prediction (Trained on your data)", use_container_width=True)
-        else:
-            prediction_button_disabled = st.button(
-                "Make Prediction (Trained on your data)",
-                use_container_width=True,
-                disabled=True,
-            )
-    elif st.session_state.made_ml_training:
-        prediction_button = st.button("Make Prediction (Trained on your data)", use_container_width=True)
-    else:
-        prediction_button_disabled = st.button(
-            "Make Prediction (Trained on your data)",
-            use_container_width=True,
-            disabled=True,
-        )
+    prediction_button_enabled = (not IS_LOCAL_RUN
+                                 and st.session_state.model
+                                 and st.session_state.scaler
+                                 and st.session_state.poly_features) or st.session_state.made_ml_training
+
+    prediction_button = st.button(
+        "Make Prediction (Trained on your data)",
+        use_container_width=True,
+        disabled=not prediction_button_enabled,
+    )
 
     clean_button = st.button("Clear All Local Cache", type="primary", use_container_width=True)
 
@@ -127,9 +118,6 @@ elif model_choice == "Train Your Own Model":
 
     elif prediction_button:
         run_prediction_dialog(use_pretrained=True)
-
-    elif prediction_button_disabled:
-        pass
 
     elif clean_button:
         clean_resources()

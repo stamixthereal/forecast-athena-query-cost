@@ -364,30 +364,6 @@ def get_transformed_data() -> pd.DataFrame:
     return transformed_data_df
 
 
-def process_data(df_to_process: pd.DataFrame) -> pd.DataFrame:
-    """Process the data."""
-    if df_to_process is not None:
-        # Convert memory from bytes to megabytes for easier readability
-        df_to_process["peak_memory_mb"] = df_to_process["peak_memory_bytes"] / (1024 ** 2)
-
-        # Define the bins for peak memory usage
-        bins = [0, 10, 50, 100, 500, 1000, df_to_process["peak_memory_mb"].max()]
-        labels = ["0-10 MB", "10-50 MB", "50-100 MB", "100-500 MB", "500-1000 MB", "1000+ MB"]
-        df_to_process["memory_bin"] = pd.cut(df_to_process["peak_memory_mb"], bins=bins, labels=labels, right=False)
-
-    return df_to_process
-
-
-def get_memory_distribution(df: pd.DataFrame) -> pd.DataFrame | None:
-    """Get memory distribution."""
-    if df is not None:
-        memory_distribution = df["memory_bin"].value_counts().sort_index().reset_index()
-        memory_distribution.columns = ["Peak Memory Range", "Number of Queries"]
-
-        return memory_distribution
-    return None
-
-
 def preview_transformed_data() -> None:
     """Preview transformed data."""
     transformed_data = get_transformed_data()
@@ -395,22 +371,5 @@ def preview_transformed_data() -> None:
     if not transformed_data.empty:
         st.header("Transformed Dataframe")
         st.dataframe(transformed_data)
-
-        transformed_data = process_data(transformed_data)
-
-        memory_distribution = get_memory_distribution(transformed_data)
-
-        if memory_distribution is not None:
-            # Scatter Chart: Distribution of Peak Memory Usage
-            st.header("Distribution of Queries by Peak Memory Usage (MB)")
-            scatter_data = pd.DataFrame({
-                "Peak Memory Range": memory_distribution["Peak Memory Range"],
-                "Number of Queries": memory_distribution["Number of Queries"],
-            })
-
-            st.bar_chart(scatter_data.set_index("Peak Memory Range"))
-        else:
-            st.write("No memory distribution data available.")
     else:
         st.write("No transformed data yet...")
-
